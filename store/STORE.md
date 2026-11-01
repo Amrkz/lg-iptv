@@ -12,11 +12,11 @@
 - `store/store-icon-400.png` — 400x400 icon to upload at Seller Lounge.
 - `lg-iptv/assets/icon.png` (80x80) and `lg-iptv/assets/largeIcon.png` (130x130) — referenced by `appinfo.json`.
 - `PRIVACY.md` — the privacy policy. Its raw GitHub address can serve as the policy URL.
-- **Splash screen:** the owner is preparing it separately. `appinfo.json` has no `splashBackground` yet.
+- `lg-iptv/assets/splash.png` — 1920x1080 splash, referenced by `splashBackground` in `appinfo.json`. The webOS simulator does not show it; check it on a real TV.
 
 ## User Supply Checklist (Required for Submission)
 - [ ] **App ID & Vendor:** Change `com.example.lgiptv` and `"Example"` to your reverse-domain identifier and vendor name in `lg-iptv/appinfo.json`. The helper service id (`com.example.lgiptv.proxy` in `lg-iptv/service/services.json`) must start with the new app id.
-- [ ] **Splash screen:** 1920x1080 PNG, not black, little text; add it as `splashBackground`.
+- [x] **Splash screen:** done (1920x1080 PNG, no text). Confirm it shows on a real TV.
 - [ ] **Seller Lounge Account:** Registered and verified.
 - [ ] **Self-checklist and UX scenario document:** filled in with real test results from a TV (the on-TV checklist is at the bottom of `PLAN.md`).
 - [ ] **Test Account:** Active provider credentials for LG reviewers to test playback.

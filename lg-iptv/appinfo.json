@@ -8,6 +8,7 @@
   "icon": "assets/icon.png",
   "largeIcon": "assets/largeIcon.png",
   "bgImage": "assets/bg.png",
+  "splashBackground": "assets/splash.png",
   "resolution": "1920x1080",
   "disableBackHistoryAPI": true,
   "handlesRelaunch": false,
