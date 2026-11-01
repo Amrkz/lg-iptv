@@ -285,7 +285,7 @@ const App = (() => {
       stopSlideshow();
       if (item.cat || kind === 'episode' || view === 'search') return; // search keeps its own hero
       clearTimeout(heroTimer);
-      heroTimer = setTimeout(() => { UI.setHero(hero(), item, kind); enrich(item, kind); }, 220);
+      heroTimer = setTimeout(() => { UI.setHero(hero(), item, kind); enrich(item, kind); }, 380); // rebuild only once the cursor has rested
     },
     pick: (item, kind, list) => pick(item, kind, list),
     fav: (item, kind) => {
@@ -440,6 +440,7 @@ const App = (() => {
   // ---------- station navigation ----------
   // Each horizontal line of icons is one station row. Down/Up move exactly one line and
   // stay on the same icon. Left/Right move exactly one icon and never jump to another line.
+  const SCROLL_MS = 240, SIDE_MS = 190; // short scrolls feel quick and finish before the next key press
   const tweens = {};
   function tween(el, prop, to, ms) {
     const key = prop + (el.id || el.className);
@@ -503,14 +504,21 @@ const App = (() => {
     let to = itemsEl.scrollLeft;
     if (left - pad < to) to = left - pad;
     else if (right + pad > to + view) to = right + pad - view;
-    tween(itemsEl, 'scrollLeft', Math.max(0, to), 260);
+    tween(itemsEl, 'scrollLeft', Math.max(0, to), SIDE_MS);
   }
 
   function alignRow(row, list) {
     const first = list[0];
     const anchor = first.offsetTop + parseFloat(getComputedStyle(first).paddingTop || 0);
-    list.forEach(r => r.classList.toggle('past', r.offsetTop < row.offsetTop));
-    tween(rows(), 'scrollTop', Math.max(0, row.offsetTop - anchor), 340);
+    markPast(list, row);
+    tween(rows(), 'scrollTop', Math.max(0, row.offsetTop - anchor), SCROLL_MS);
+  }
+
+  // Read every position first, then write the classes: mixing them forces a re-layout per row.
+  function markPast(list, row) {
+    const top = row.offsetTop;
+    const flags = list.map(r => r.offsetTop < top);
+    list.forEach((r, i) => r.classList.toggle('past', flags[i]));
   }
 
   // Put this icon in the station slot: same column across lines, previous lines step aside for the hero.
@@ -522,7 +530,7 @@ const App = (() => {
     clearCardPast();
     if (itemsEl.classList.contains('grid')) {
       const here = locate(card);
-      list.forEach(r => r.classList.toggle('past', r.offsetTop < row.offsetTop));
+      markPast(list, row);
       if (here) {
         here.lines.forEach((line, i) => {
           if (i < here.li) line.cards.forEach(c => c.classList.add('past'));
@@ -532,7 +540,7 @@ const App = (() => {
       focusNoScroll(card);
       const slotCard = linesIn(list[0])[0].cards[0];
       const slot = list[0].offsetTop + slotCard.offsetTop;
-      tween(rows(), 'scrollTop', Math.max(0, row.offsetTop + card.offsetTop - slot), 340);
+      tween(rows(), 'scrollTop', Math.max(0, row.offsetTop + card.offsetTop - slot), SCROLL_MS);
     } else {
       alignRow(row, list); // un-hide the row first: a hidden row cannot take focus
       focusNoScroll(card);
@@ -551,7 +559,7 @@ const App = (() => {
   function focusNav() {
     railRows().forEach(r => r.classList.remove('past'));
     clearCardPast();
-    tween(rows(), 'scrollTop', 0, 340);
+    tween(rows(), 'scrollTop', 0, SCROLL_MS);
     const nb = UI.$('.navbtn.active') || UI.$('.navbtn');
     if (nb) nb.focus();
   }
@@ -667,16 +675,52 @@ const App = (() => {
     });
   }
 
+  // ---------- landing page ----------
+  // The app opens on the section that was open last. If that section has nothing in it,
+  // it opens on the first tab of the menu instead.
+  const SECTIONS = ['live', 'movies', 'series', 'fav'];
+  const DEFAULT_SECTION = 'movies'; // first run, nothing remembered yet
+
+  const firstSection = () => {
+    const b = UI.$('.navbtn[data-cat]');
+    return b ? b.dataset.cat : 'live';
+  };
+
+  // open a section; `remember` stores it as the one to land on next time
+  function openSection(kind, remember) {
+    if (remember) API.pref('section', kind);
+    if (kind === 'fav') { showFavs(false); return Promise.resolve(); }
+    return loadCategory(kind);
+  }
+
+  // true when the section on screen shows no real item (the "All categories" chips do not count)
+  const sectionEmpty = () => !rows().querySelector('.card:not(.chip)');
+
+  function startSection() {
+    const saved = API.pref('section');
+    return SECTIONS.indexOf(saved) >= 0 ? saved : DEFAULT_SECTION;
+  }
+
+  function landing() {
+    const kind = startSection();
+    const first = firstSection();
+    const p = openSection(kind, false);
+    const id = loadId; // the open above bumped it; a later key press bumps it again
+    return p.then(() => {
+      if (id !== loadId || kind === first || !sectionEmpty()) return;
+      return openSection(first, false); // empty: go to the top of the menu
+    });
+  }
+
   // colour buttons: red = search, green = favorites, blue = next section
   function onColor(k) {
     if (!homeVisible() || pickerOpen) return false;
     const goNav = () => { const nb = UI.$('.navbtn.active'); if (nb) nb.focus(); };
     if (k === KEYS.RED) { showSearch(); return true; }
-    if (k === KEYS.GREEN) { showFavs(false); goNav(); return true; }
+    if (k === KEYS.GREEN) { openSection('fav', true); goNav(); return true; }
     if (k === KEYS.BLUE) {
-      const cycle = ['live', 'movies', 'series', 'fav'];
-      const next = cycle[(cycle.indexOf(currentKind) + 1) % cycle.length];
-      if (next === 'fav') showFavs(false); else loadCategory(next);
+      const next = SECTIONS[(SECTIONS.indexOf(currentKind) + 1) % SECTIONS.length];
+      openSection(next, true);
       goNav();
       return true;
     }
@@ -701,9 +745,8 @@ const App = (() => {
   UI.$$('.navbtn[data-cat]').forEach(b => {
     b.addEventListener('click', () => {
       const cat = b.dataset.cat;
-      if (cat === 'fav') showFavs(false);
-      else if (cat === 'search') showSearch();
-      else loadCategory(cat);
+      if (cat === 'search') showSearch();
+      else openSection(cat, true);
     });
   });
 
@@ -740,7 +783,8 @@ const App = (() => {
     }
     p.then(() => {
       UI.showScreen('home');
-      loadCategory('movies');
+      setActiveNav(startSection());
+      landing();
     }).catch(e => {
       err.textContent = (e && e.message) || 'Login failed';
     }).then(() => {
@@ -764,8 +808,9 @@ const App = (() => {
   // auto-login
   if (API.getConfig()) {
     UI.showScreen('home');
+    setActiveNav(startSection()); // the menu shows the right tab while the list loads
     UI.setMessage(rows(), 'Loading…');
-    API.ensureLoaded().then(() => loadCategory('movies')).catch(e => {
+    API.ensureLoaded().then(() => landing()).catch(e => {
       API.clearConfig();
       UI.showScreen('login');
       UI.$('#login-err').textContent = (e && e.message) || 'Could not restore session';

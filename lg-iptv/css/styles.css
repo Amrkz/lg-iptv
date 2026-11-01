@@ -36,12 +36,8 @@ input { -webkit-user-select: text; user-select: text; }
 .screen { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
 .hidden { display: none !important; }
 
-/* film grain over everything: static, so it costs nothing per frame */
-body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 100; opacity: 0.07;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
-body.playback::after { content: none; }
-
-@keyframes rise { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
+/* No film-grain overlay: a full-screen see-through layer makes the TV blend the whole screen on every animation frame. */
+@keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---------- Login ---------- */
@@ -92,16 +88,15 @@ nav .navbtn + .navbtn { margin-left: 8px; }
 .hero-slide.leaving { animation: fadeout 0.6s ease-out both; }
 @keyframes fadeout { from { opacity: 1; } to { opacity: 0; } }
 .hero-bg { position: absolute; top: -50px; left: -50px; right: -50px; bottom: -50px; background-size: cover; background-position: center; filter: blur(28px) brightness(0.5) saturate(1.25);
-  will-change: transform; animation: fade 0.8s ease-out both, drift 9s linear both; }
-@keyframes drift { from { transform: scale(1); } to { transform: scale(1.08) translateX(-1.5%); } } /* slow Ken Burns */
+  animation: fade 0.5s ease-out both; } /* no slow zoom: re-blurring a 2000 px layer on every frame starves the focus animation */
 .hero-slide::after { content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1;
   background: linear-gradient(to top, var(--ink) 6%, rgba(12, 12, 14, 0) 58%), linear-gradient(to right, rgba(12, 12, 14, 0.88), rgba(12, 12, 14, 0) 64%); }
-.hero-art { position: absolute; z-index: 2; right: 150px; top: 136px; max-height: 372px; max-width: 540px; border-radius: 12px; box-shadow: 0 34px 70px rgba(0, 0, 0, 0.65); animation: rise 0.7s var(--ease) 0.05s both; }
+.hero-art { position: absolute; z-index: 2; right: 150px; top: 136px; max-height: 372px; max-width: 540px; border-radius: 12px; box-shadow: 0 34px 70px rgba(0, 0, 0, 0.65); animation: rise 0.4s var(--ease) both; }
 .hero .hero-content { position: absolute; z-index: 3; left: var(--gutter); bottom: 196px; max-width: 1000px; }
-.hero-content > * { animation: rise 0.7s var(--ease) both; }
-.hero-content > :nth-child(2) { animation-delay: 0.06s; }
-.hero-content > :nth-child(3) { animation-delay: 0.12s; }
-.hero-content > :nth-child(4) { animation-delay: 0.18s; }
+.hero-content > * { animation: rise 0.4s var(--ease) both; }
+.hero-content > :nth-child(2) { animation-delay: 0.03s; }
+.hero-content > :nth-child(3) { animation-delay: 0.06s; }
+.hero-content > :nth-child(4) { animation-delay: 0.09s; }
 /* slideshow progress: one segment per slide, the current one fills */
 .hero-dots { display: flex; margin-top: 30px; }
 .hero-dots span { width: 56px; height: 5px; margin-right: 10px; border-radius: 3px; background: rgba(255, 255, 255, 0.26); overflow: hidden; }
@@ -120,10 +115,10 @@ nav .navbtn + .navbtn { margin-left: 8px; }
 
 .rows { pointer-events: none; position: absolute; z-index: 1; top: 0; left: 0; right: 0; bottom: 0; overflow-y: auto; padding-top: 540px; scroll-padding-top: 140px; }
 .row, .rows > .empty { pointer-events: auto; }
-.row { position: relative; background: var(--ink); padding: 0 var(--gutter) 8px; transition: opacity 0.3s; }
+.row { position: relative; background: var(--ink); padding: 0 var(--gutter) 8px; }
 /* soft edge into the hero when the rows above have stepped aside */
 .row::before { content: ""; position: absolute; left: 0; right: 0; top: -56px; height: 56px; background: linear-gradient(to bottom, rgba(12, 12, 14, 0), var(--ink)); pointer-events: none; }
-.row.past { opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0s linear 0.3s; } /* rows above the focused one step aside for the hero */
+.row.past { opacity: 0; visibility: hidden; } /* rows above the focused one step aside for the hero */
 .row-items .card.past { opacity: 0; visibility: hidden; pointer-events: none; } /* grid lines above the focused line */
 .row:first-child { padding-top: 56px; background: linear-gradient(to bottom, rgba(12, 12, 14, 0), var(--ink) 56px); }
 .row h3 { display: flex; align-items: baseline; font: 900 42px/1.2 var(--display); text-transform: uppercase; letter-spacing: 0.02em; }
@@ -135,7 +130,7 @@ nav .navbtn + .navbtn { margin-left: 8px; }
 .empty { color: var(--text-3); font-size: 30px; padding: 40px var(--gutter); background: var(--ink); min-height: 560px; }
 
 .card { flex: 0 0 288px; height: 162px; margin-right: 20px; background: var(--panel); border-radius: 10px; position: relative; overflow: hidden; cursor: pointer;
-  transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease), opacity 0.25s; }
+  transition: transform 0.18s var(--ease); } /* transform only: shadows and opacity repaint every frame on the TV */
 .card.poster { flex-basis: 206px; height: 309px; }
 .card.chip { flex-basis: 264px; height: 104px; }
 .card img { width: 100%; height: 100%; object-fit: cover; display: block; }

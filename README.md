@@ -7,6 +7,7 @@ You enter your own server, username and password in the app. No provider or cred
 ## What it does
 
 - Live TV, films and series, with favorites and Continue Watching.
+- Opens on the section you used last. If that section is empty, it opens on the first tab (Live TV).
 - Live: Up/Down changes channel, number keys jump to a channel, Green returns to the last channel, a channel banner shows now/next with a progress bar.
 - Series: Up Next card with a 10 s countdown, "Watch credits", Skip intro (learned from where you skip), "Are you still watching?" after 3 autoplayed episodes, Start over.
 - Player: picture modes (Fit, Fill, Zoom, Stretch, 4:3), audio and subtitle choice with language memory, subtitle size, playback speed, pause info card, sleep timer.
