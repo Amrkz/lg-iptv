@@ -57,7 +57,7 @@ const UI = (() => {
       const h3 = document.createElement('h3');
       const nm = document.createElement('span');
       nm.dir = 'auto'; // Arabic reads right-to-left, the heading stays on the left gutter
-      nm.textContent = cat.category_name || 'Category';
+      nm.textContent = cat.category_name || tr('Category');
       h3.appendChild(nm);
       let countEl = null;
       if (total > 1 && !cat.grid) {
@@ -145,7 +145,7 @@ const UI = (() => {
       row.appendChild(itemsEl);
       container.appendChild(row);
     });
-    if (!count) setMessage(container, 'Nothing here yet.');
+    if (!count) setMessage(container, tr('Nothing here yet.'));
     lazyImages(container);
   }
 
@@ -214,7 +214,7 @@ const UI = (() => {
     el.innerHTML = '';
   }
 
-  const KICKERS = { live: 'Live TV', movies: 'Movie', series: 'Series', episode: 'Series', fav: 'Favorite', recent: 'Resume' };
+  const KICKERS = { live: tr('Live TV'), movies: tr('Movie'), series: tr('Series'), episode: tr('Series'), fav: tr('Favorite'), recent: tr('Resume') };
 
   // "2023 · Drama / Thriller · ★ 7.4 · 1h 52m" from whatever fields the provider sends
   function metaOf(it) {
@@ -225,7 +225,7 @@ const UI = (() => {
     const r = parseFloat(it.rating);
     if (r > 0) parts.push('\u2605 ' + r.toFixed(1));
     const d = String(it.duration || '').match(/^(\d+):(\d+)/);
-    if (d) parts.push((+d[1] ? +d[1] + 'h ' : '') + +d[2] + 'm');
+    if (d) parts.push((+d[1] ? tr('{h}h', { h: +d[1] }) + ' ' : '') + tr('{m}m', { m: +d[2] }));
     return parts.filter(Boolean).join('   \u00b7   ');
   }
 
@@ -254,16 +254,16 @@ const UI = (() => {
     box.className = 'hero-content';
     const k = document.createElement('div');
     k.className = 'hero-kicker';
-    k.textContent = 'Search';
+    k.textContent = tr('Search');
     const input = document.createElement('input');
     input.id = 'search-input';
     input.className = 'search-input';
-    input.placeholder = 'Channels, movies, series';
+    input.placeholder = tr('Channels, movies, series');
     input.setAttribute('autocomplete', 'off');
     input.setAttribute('spellcheck', 'false');
     input.dir = 'auto';
     const p = document.createElement('p');
-    p.textContent = 'Press OK to type. Press Down for results.';
+    p.textContent = tr('Press OK to type. Press Down for results.');
     box.appendChild(k);
     box.appendChild(input);
     box.appendChild(p);
@@ -310,14 +310,14 @@ const UI = (() => {
     box.className = 'hero-content';
     const k = document.createElement('div');
     k.className = 'hero-kicker';
-    k.textContent = KICKERS[kind] || 'Featured';
+    k.textContent = KICKERS[kind] || tr('Featured');
     const h2 = document.createElement('h2');
     h2.dir = 'auto';
     const h2text = document.createElement('span');
     h2text.textContent = item.name || item.title || '';
     h2.appendChild(h2text);
     const p = document.createElement('p');
-    p.textContent = item.plot || item.description || 'Press OK to play. Press the yellow button to add it to your favorites.';
+    p.textContent = item.plot || item.description || tr('Press OK to play. Press the yellow button to add it to your favorites.');
     p.dir = 'auto';
     box.appendChild(k);
     box.appendChild(h2);

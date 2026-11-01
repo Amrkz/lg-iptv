@@ -70,15 +70,15 @@ const Player = (() => {
   const LIVE_RELOAD_MS = 30000;    // a live channel paused longer than this reopens at the live point
 
   const PICTURES = [
-    { id: 'fit', name: 'Fit', note: 'The whole picture, black bars if needed' },
-    { id: 'fill', name: 'Fill', note: 'Fills the screen, trims the edges' },
-    { id: 'zoom', name: 'Zoom', note: 'Cuts black bars that are part of the broadcast' },
-    { id: 'stretch', name: 'Stretch', note: 'Stretches the picture to the screen shape' },
-    { id: '43', name: '4:3', note: 'Narrow picture in the middle' }
+    { id: 'fit', name: tr('Fit'), note: tr('The whole picture, black bars if needed') },
+    { id: 'fill', name: tr('Fill'), note: tr('Fills the screen, trims the edges') },
+    { id: 'zoom', name: tr('Zoom'), note: tr('Cuts black bars that are part of the broadcast') },
+    { id: 'stretch', name: tr('Stretch'), note: tr('Stretches the picture to the screen shape') },
+    { id: '43', name: '4:3', note: tr('Narrow picture in the middle') }
   ];
-  const SUB_SIZES = [{ id: 's', name: 'Small', px: 32 }, { id: 'm', name: 'Medium', px: 44 }, { id: 'l', name: 'Large', px: 60 }];
-  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const SUB_SIZES = [{ id: 's', name: tr('Small'), px: 32 }, { id: 'm', name: tr('Medium'), px: 44 }, { id: 'l', name: tr('Large'), px: 60 }];
+  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(x => tr(x));
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(x => tr(x));
 
   let ctx = null, info = null, alts = [];
   let hls = null, retries = 0, started = false, stallTimer = null;
@@ -127,7 +127,7 @@ const Player = (() => {
 
   function epgLine() {
     if (!isLive() || !epg.length) return '';
-    let s = 'Now: ' + epg[0].title;
+    let s = tr('Now:') + ' ' + epg[0].title;
     if (epg[1]) s += '  ·  ' + hhmm(epg[1].start) + ' ' + epg[1].title;
     return s;
   }
@@ -212,21 +212,21 @@ const Player = (() => {
   function syncMini() {
     const live = isLive();
     $('mini-ico').textContent = video.paused ? '▶' : '❚❚';
-    $('mini-el').textContent = live ? 'LIVE' : tElapsed.textContent;
+    $('mini-el').textContent = live ? tr('LIVE') : tElapsed.textContent;
     $('mini-re').textContent = live ? '' : tRemain.textContent;
     $('mini-played').style.width = live ? '100%' : sbPlayed.style.width;
   }
 
   function updatePlayIcon() {
     B.play.querySelector('path').setAttribute('d', video.paused ? PATH_PLAY : PATH_PAUSE);
-    B.play.querySelector('.plabel').textContent = video.paused ? 'Play' : 'Pause';
+    B.play.querySelector('.plabel').textContent = video.paused ? tr('Play') : tr('Pause');
     if (!miniEl.classList.contains('hide')) syncMini();
   }
 
   function refreshFav() {
     const on = !!(info && info.fav && API.isFav(info.fav.key));
     B.fav.classList.toggle('on', on);
-    B.fav.querySelector('.plabel').textContent = on ? 'Favorited' : 'Favorite';
+    B.fav.querySelector('.plabel').textContent = on ? tr('Favorited') : tr('Favorite');
     B.fav.classList.toggle('hidden', !(info && info.fav));
   }
 
@@ -252,10 +252,10 @@ const Player = (() => {
     seekbar.classList.remove('epg');
     seekbar.tabIndex = live ? -1 : 0;
     tElapsed.textContent = live ? '' : '0:00';
-    tRemain.textContent = live ? 'LIVE' : '-0:00';
+    tRemain.textContent = live ? tr('LIVE') : '-0:00';
     sbPlayed.style.width = live ? '100%' : '0';
     sbBuf.style.width = '0';
-    B.speed.querySelector('.plabel').textContent = 'Speed';
+    B.speed.querySelector('.plabel').textContent = tr('Speed');
   }
 
   // ---------- picture size ----------
@@ -285,7 +285,7 @@ const Player = (() => {
     PICTURES.forEach((p, i) => { if (p.id === pictureId) idx = i; });
     const next = PICTURES[(idx + 1) % PICTURES.length];
     setPicture(next.id);
-    toast('Picture: ' + next.name);
+    toast(tr('Picture: {name}', { name: next.name }));
   }
 
   // ---------- subtitle style ----------
@@ -403,7 +403,7 @@ const Player = (() => {
       video.currentTime = pr.t;
       resumedFrom = pr.t;
       updateStartBtn();
-      toast('Resumed at ' + fmt(pr.t), 2200);
+      toast(tr('Resumed at {time}', { time: fmt(pr.t) }), 2200);
     }
   }
 
@@ -442,7 +442,7 @@ const Player = (() => {
   }
 
   function updateUpCard() {
-    $('up-count').textContent = 'Starts in ' + Math.max(0, Math.ceil(upLeft / 1000)) + 's';
+    $('up-count').textContent = tr('Starts in {n}s', { n: Math.max(0, Math.ceil(upLeft / 1000)) });
     upFill.style.width = clamp(100 - (upLeft / UP_COUNT_MS) * 100, 0, 100) + '%';
   }
 
@@ -526,7 +526,7 @@ const Player = (() => {
     const had = !!introRange;
     introRange = { from: Math.round(oldT), to: Math.round(newT) };
     API.setIntro(sidOf(), introRange);
-    if (!had) toast('Intro remembered for this series', 2400);
+    if (!had) toast(tr('Intro remembered for this series'), 2400);
   }
 
   function showSkip() {
@@ -547,7 +547,7 @@ const Player = (() => {
     learnOff = Date.now() + 3000;
     video.currentTime = introRange.to;
     hideSkip();
-    toast('Intro skipped');
+    toast(tr('Intro skipped'));
   }
 
   function checkSkipIntro() {
@@ -580,7 +580,7 @@ const Player = (() => {
     lastReconnect = Date.now();
     const at = isLive() ? 0 : video.currentTime;
     restart(at);
-    setMsg('Reconnecting…');
+    setMsg(tr('Reconnecting…'));
   }
 
   // open the current item again from the start of the engine list
@@ -663,20 +663,20 @@ const Player = (() => {
     clearTimeout(busyTimer);
     const wait = notReady ? BUSY_RETRY_MS + (busyRetries - 1) * 4000 : BUSY_RETRY_MS; // 8, 12, 16, 20, 24 s
     busyTimer = setTimeout(() => { if (info && failed && !hidden()) restart(0); }, wait);
-    return ' Retrying automatically (' + busyRetries + ' of ' + max + '). Press OK to retry now.';
+    return ' ' + tr('Retrying automatically ({n} of {max}). Press OK to retry now.', { n: busyRetries, max });
   }
 
   function failureText(status, note) {
     const head = 'HTTP ' + status + (note ? ': ' + note : '');
-    const again = ' Press OK to try again.';
-    if (status === 429 || status === 458 || status === 509) return head + '. The provider is limiting connections.' + again;
-    if (status === 401 || status === 403) return head + '. Check the username, password and subscription.';
-    if (status === 404 || status === 410) return head + '. The provider no longer has this stream.';
-    if (status >= 500) return head + '. The provider server has a problem.';
-    if (status >= 200 && status < 300) return 'The provider answered, but this TV cannot decode this stream format.';
+    const again = ' ' + tr('Press OK to try again.');
+    if (status === 429 || status === 458 || status === 509) return head + '. ' + tr('The provider is limiting connections.') + again;
+    if (status === 401 || status === 403) return head + '. ' + tr('Check the username, password and subscription.');
+    if (status === 404 || status === 410) return head + '. ' + tr('The provider no longer has this stream.');
+    if (status >= 500) return head + '. ' + tr('The provider server has a problem.');
+    if (status >= 200 && status < 300) return tr('The provider answered, but this TV cannot decode this stream format.');
     if (status === 409) {
       var via = viaHelper(startUrl);
-      var why = via ? '. The on-TV player was refused too.' : '. The on-TV player did not start, so this is still the browser.';
+      var why = '. ' + (via ? tr('The on-TV player was refused too.') : tr('The on-TV player did not start, so this is still the browser.'));
       if (!via && window.API && API.proxyError) why += ' (' + API.proxyError + ')';
       return head + why + again;
     }
@@ -686,8 +686,8 @@ const Player = (() => {
 
   // what the viewer reads when nothing worked
   function failureMessage(text) {
-    if (isCatchup()) return 'This replay cannot be played. ' + (text || '') + ' Press Back to return to live.';
-    return text || 'Cannot play this stream';
+    if (isCatchup()) return tr('This replay cannot be played.') + ' ' + (text || '') + ' ' + tr('Press Back to return to live.');
+    return text || tr('Cannot play this stream');
   }
 
   function fail() {
@@ -738,7 +738,7 @@ const Player = (() => {
       const why = failureText(res.status, firstLine(res.text)) + maybeRetry(url, res.status);
       setMsg(failureMessage(why));
     }).catch(() => {
-      if (!stale()) setMsg(failureMessage('This stream is not available right now.'));
+      if (!stale()) setMsg(failureMessage(tr('This stream is not available right now.')));
     });
   }
 
@@ -751,7 +751,7 @@ const Player = (() => {
     // drop the previous connection while the local player proxy answers
     teardown();
     releaseVideo();
-    setMsg('Opening…');
+    setMsg(tr('Opening…'));
     spinner.classList.remove('hidden');
     // The TV's own player reads the LAN address. The page player reads loopback.
     if (!mode) mode = 'native';
@@ -764,7 +764,7 @@ const Player = (() => {
   function startHls(url) {
     engine = 'js';
     triedJs = true;
-    setMsg('Opening…');
+    setMsg(tr('Opening…'));
     hls = new Hls({
       enableWorker: false,
       lowLatencyMode: false,
@@ -787,7 +787,7 @@ const Player = (() => {
       if (!started) { fail(); return; }  // never got going: go straight to the fallback
       if (data.type === Hls.ErrorTypes.NETWORK_ERROR && retries < 2) {
         retries++;
-        setMsg('Reconnecting…');
+        setMsg(tr('Reconnecting…'));
         hls.startLoad();
       } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR && retries < 2) {
         retries++;
@@ -819,7 +819,7 @@ const Player = (() => {
     // a live channel starts in seconds; a movie file can take a provider 15 s or more to open the first time
     stallTimer = setTimeout(() => { if (!started) fail(); }, isCatchup() ? 15000 : isLive() ? 8000 : 50000);
     if (!isLive() && !isCatchup()) {
-      slowTimer = setTimeout(() => { if (!started && !failed && !hidden()) setMsg('The provider is slow to start this one. Please wait…'); }, 6000);
+      slowTimer = setTimeout(() => { if (!started && !failed && !hidden()) setMsg(tr('The provider is slow to start this one. Please wait…')); }, 6000);
     }
     const isHls = /\.m3u8(\?|$)/i.test(url);
     const jsOk = !!(window.Hls && window.MediaSource);
@@ -956,8 +956,8 @@ const Player = (() => {
     API.getShortEpg(sid).then(list => {
       if (key !== bannerKey || bannerEl.classList.contains('hidden')) return;
       const now = list[0], next = list[1];
-      if (now) bnNow.textContent = 'Now  ' + now.title + '  (' + hhmm(now.start) + '–' + hhmm(now.end) + ')';
-      if (next) bnNext.textContent = 'Next  ' + hhmm(next.start) + '  ' + next.title;
+      if (now) bnNow.textContent = tr('Now') + '  ' + now.title + '  (' + hhmm(now.start) + '–' + hhmm(now.end) + ')';
+      if (next) bnNext.textContent = tr('Next') + '  ' + hhmm(next.start) + '  ' + next.title;
     });
   }
 
@@ -995,11 +995,11 @@ const Player = (() => {
   }
 
   function lastChannel() {
-    if (!isLive() || !prevItem) { toast('No previous channel'); return; }
+    if (!isLive() || !prevItem) { toast(tr('No previous channel')); return; }
     cancelNumber();
     let i = -1;
     ctx.items.forEach((it, k) => { if (sameChannel(it, prevItem)) i = k; });
-    if (i < 0) { toast('No previous channel'); return; }
+    if (i < 0) { toast(tr('No previous channel')); return; }
     playIndex(i);
   }
 
@@ -1041,13 +1041,13 @@ const Player = (() => {
     API.getAll('live').then(all => {
       if (!isLive()) return;
       const j = findByNumber(all, num);
-      if (j < 0) { toast('No channel ' + num); return; }
+      if (j < 0) { toast(tr('No channel {num}', { num })); return; }
       const target = all[j];
       let i = -1;
       ctx.items.forEach((it, k) => { if (sameChannel(it, target)) i = k; });
       if (i < 0) { ctx.items = all; i = j; applyMode(); } // outside this list: switch to all channels
       playIndex(i);
-    }).catch(() => toast('No channel ' + num));
+    }).catch(() => toast(tr('No channel {num}', { num })));
   }
 
   function loadEpg() {
@@ -1070,7 +1070,7 @@ const Player = (() => {
     if (!cur || cur.start > Date.now() + 60000) {
       seekbar.classList.remove('epg');
       tElapsed.textContent = '';
-      tRemain.textContent = 'LIVE';
+      tRemain.textContent = tr('LIVE');
       return;
     }
     seekbar.classList.add('epg');
@@ -1090,7 +1090,7 @@ const Player = (() => {
     if (!base) return;
     const chItem = base.ctx.items[base.index];
     const urls = API.catchupUrls(chItem, prog);
-    if (!urls) { toast('Replay is not available here'); return; }
+    if (!urls) { toast(tr('Replay is not available here')); return; }
     const chInfo = base.ctx.resolve(chItem);
     savedLive = base;
     clearTimeout(zapTimer);
@@ -1122,10 +1122,10 @@ const Player = (() => {
   function catchupStartOver() {
     const go = (list) => {
       const now = list[0];
-      if (!now) { toast('No programme information for this channel'); return; }
+      if (!now) { toast(tr('No programme information for this channel')); return; }
       playCatchup({ title: now.title, desc: now.desc, start: now.start, end: now.end, startStr: now.startStr, archive: true });
     };
-    if (epg.length) go(epg); else loadEpg().then(go, () => toast('No programme information for this channel'));
+    if (epg.length) go(epg); else loadEpg().then(go, () => toast(tr('No programme information for this channel')));
   }
 
   function startOver() {
@@ -1133,7 +1133,7 @@ const Player = (() => {
     video.currentTime = 0;
     resumedFrom = 0;
     updateStartBtn();
-    toast('Starting over');
+    toast(tr('Starting over'));
     showOverlay(B.play);
   }
 
@@ -1175,9 +1175,9 @@ const Player = (() => {
   // ---------- sleep timer ----------
   function updateSleepLabel() {
     const l = B.sleep.querySelector('.plabel');
-    if (sleepEnd) l.textContent = 'Sleep: at the end';
-    else if (sleepAt) l.textContent = 'Sleep ' + Math.max(1, Math.ceil((sleepAt - Date.now()) / 60000)) + 'm';
-    else l.textContent = 'Sleep timer';
+    if (sleepEnd) l.textContent = tr('Sleep: at the end');
+    else if (sleepAt) l.textContent = tr('Sleep {n}m', { n: Math.max(1, Math.ceil((sleepAt - Date.now()) / 60000)) });
+    else l.textContent = tr('Sleep timer');
   }
 
   function setSleep(min) {
@@ -1185,7 +1185,7 @@ const Player = (() => {
     sleepEnd = false;
     sleepWarnShown = false;
     updateSleepLabel();
-    toast('Sleep timer: ' + min + ' minutes');
+    toast(tr('Sleep timer: {n} minutes', { n: min }));
   }
 
   function hideSleepCard() {
@@ -1219,7 +1219,7 @@ const Player = (() => {
         sleepEl.classList.remove('hidden');
         sleepKeep.focus();
       }
-      sleepSub.textContent = 'Stopping in ' + Math.ceil(left / 1000) + ' seconds. Press any key to keep watching.';
+      sleepSub.textContent = tr('Stopping in {n} seconds. Press any key to keep watching.', { n: Math.ceil(left / 1000) });
     }
   }
 
@@ -1228,7 +1228,7 @@ const Player = (() => {
     if (hls && hls.audioTracks && hls.audioTracks.length > 1) {
       return hls.audioTracks.map((t, i) => ({
         key: String(t.lang || t.name || '').toLowerCase(),
-        label: t.name || t.lang || 'Audio ' + (i + 1), on: hls.audioTrack === i, set: () => { hls.audioTrack = i; }
+        label: t.name || t.lang || tr('Audio {n}', { n: i + 1 }), on: hls.audioTrack === i, set: () => { hls.audioTrack = i; }
       }));
     }
     const at = video.audioTracks;
@@ -1237,7 +1237,7 @@ const Player = (() => {
       for (let i = 0; i < at.length; i++) {
         out.push({
           key: String(at[i].language || at[i].label || '').toLowerCase(),
-          label: at[i].label || at[i].language || 'Audio ' + (i + 1), on: at[i].enabled,
+          label: at[i].label || at[i].language || tr('Audio {n}', { n: i + 1 }), on: at[i].enabled,
           set: () => { for (let j = 0; j < at.length; j++) at[j].enabled = j === i; }
         });
       }
@@ -1248,10 +1248,10 @@ const Player = (() => {
 
   function subtitleOptions() {
     if (hls && hls.subtitleTracks && hls.subtitleTracks.length) {
-      const out = [{ key: 'off', label: 'Off', on: hls.subtitleTrack < 0 || hls.subtitleDisplay === false, set: () => { hls.subtitleTrack = -1; hls.subtitleDisplay = false; } }];
+      const out = [{ key: 'off', label: tr('Off'), on: hls.subtitleTrack < 0 || hls.subtitleDisplay === false, set: () => { hls.subtitleTrack = -1; hls.subtitleDisplay = false; } }];
       hls.subtitleTracks.forEach((t, i) => out.push({
         key: String(t.lang || t.name || '').toLowerCase(),
-        label: t.name || t.lang || 'Subtitles ' + (i + 1),
+        label: t.name || t.lang || tr('Subtitles {n}', { n: i + 1 }),
         on: hls.subtitleTrack === i && hls.subtitleDisplay !== false,
         set: () => { hls.subtitleTrack = i; hls.subtitleDisplay = true; }
       }));
@@ -1263,10 +1263,10 @@ const Player = (() => {
       if (t.kind === 'subtitles' || t.kind === 'captions') tt.push(t);
     }
     if (!tt.length) return [];
-    const out = [{ key: 'off', label: 'Off', on: tt.every(t => t.mode !== 'showing'), set: () => { tt.forEach(t => { t.mode = 'disabled'; }); } }];
+    const out = [{ key: 'off', label: tr('Off'), on: tt.every(t => t.mode !== 'showing'), set: () => { tt.forEach(t => { t.mode = 'disabled'; }); } }];
     tt.forEach((t, i) => out.push({
       key: String(t.language || t.label || '').toLowerCase(),
-      label: t.label || t.language || 'Subtitles ' + (i + 1), on: t.mode === 'showing',
+      label: t.label || t.language || tr('Subtitles {n}', { n: i + 1 }), on: t.mode === 'showing',
       set: () => { tt.forEach((x, j) => { x.mode = j === i ? 'showing' : 'disabled'; }); }
     }));
     return out;
@@ -1367,7 +1367,7 @@ const Player = (() => {
     const seasons = [];
     ctx.items.forEach(it => { if (seasons.indexOf(it.season) < 0) seasons.push(it.season); });
     let season = cur.season;
-    drawerBody.appendChild(dTitle(cur.seriesName || 'Episodes'));
+    drawerBody.appendChild(dTitle(cur.seriesName || tr('Episodes')));
     const chips = document.createElement('div');
     chips.className = 'd-chips';
     const list = document.createElement('div');
@@ -1379,7 +1379,7 @@ const Player = (() => {
       seasons.forEach(sn => {
         const c = document.createElement('button');
         c.className = 'd-chip' + (sn === season ? ' on' : '');
-        c.textContent = 'Season ' + sn;
+        c.textContent = tr('Season {n}', { n: sn });
         c.addEventListener('click', () => { season = sn; render(); const f = list.querySelector('.d-item'); if (f) f.focus(); });
         chips.appendChild(c);
       });
@@ -1388,7 +1388,7 @@ const Player = (() => {
       ctx.items.forEach((it, i) => {
         if (it.season !== season) return;
         const b = dItem({
-          thumb: it.icon, name: it.name, sub: i === ctx.index ? 'Now playing' : '', now: i === ctx.index, pct: pctFor(it.url),
+          thumb: it.icon, name: it.name, sub: i === ctx.index ? tr('Now playing') : '', now: i === ctx.index, pct: pctFor(it.url),
           onClick: () => { closeDrawer(true); playIndex(i); }
         });
         if (i === ctx.index) nowBtn = b;
@@ -1401,7 +1401,7 @@ const Player = (() => {
 
   // Thousands of channels would freeze the drawer, so it draws a window around the current one.
   function buildChannels() {
-    drawerBody.appendChild(dTitle('Channels'));
+    drawerBody.appendChild(dTitle(tr('Channels')));
     const list = document.createElement('div');
     drawerBody.appendChild(list);
     const n = ctx.items.length;
@@ -1412,19 +1412,19 @@ const Player = (() => {
     }
     function render() {
       list.innerHTML = '';
-      if (from > 0) list.appendChild(more('Earlier channels…', () => { const old = from; from = Math.max(0, from - 300); render(); if (btnAt[old - 1]) btnAt[old - 1].focus(); }));
+      if (from > 0) list.appendChild(more(tr('Earlier channels…'), () => { const old = from; from = Math.max(0, from - 300); render(); if (btnAt[old - 1]) btnAt[old - 1].focus(); }));
       for (let i = from; i < to; i++) {
         const it = ctx.items[i];
         const r = ctx.resolve(it);
         const idx = i;
         const b = dItem({
-          thumb: r.icon || '', num: channelNumber(it, i), name: r.title, now: i === ctx.index, sub: i === ctx.index ? 'Now playing' : '',
+          thumb: r.icon || '', num: channelNumber(it, i), name: r.title, now: i === ctx.index, sub: i === ctx.index ? tr('Now playing') : '',
           onClick: () => { closeDrawer(true); playIndex(idx); }
         });
         btnAt[i] = b;
         list.appendChild(b);
       }
-      if (to < n) list.appendChild(more('More channels…', () => { const old = to; to = Math.min(n, to + 300); render(); if (btnAt[old]) btnAt[old].focus(); }));
+      if (to < n) list.appendChild(more(tr('More channels…'), () => { const old = to; to = Math.min(n, to + 300); render(); if (btnAt[old]) btnAt[old].focus(); }));
     }
     render();
     return btnAt[ctx.index] || list.querySelector('.d-item');
@@ -1433,17 +1433,17 @@ const Player = (() => {
   function dayLabel(ms) {
     const d = new Date(ms), t = new Date();
     const same = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-    if (same(d, t)) return 'Today';
-    if (same(d, new Date(t.getTime() - 86400000))) return 'Yesterday';
+    if (same(d, t)) return tr('Today');
+    if (same(d, new Date(t.getTime() - 86400000))) return tr('Yesterday');
     return DAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()];
   }
 
   // programmes the provider kept, newest first, grouped by day
   function buildGuide() {
-    drawerBody.appendChild(dTitle('Replay guide'));
+    drawerBody.appendChild(dTitle(tr('Replay guide')));
     const status = document.createElement('div');
     status.className = 'd-empty';
-    status.textContent = 'Loading…';
+    status.textContent = tr('Loading…');
     drawerBody.appendChild(status);
     const mine = info;
     API.getArchiveGuide(info.live.streamId).then(list => {
@@ -1451,7 +1451,7 @@ const Player = (() => {
       const now = Date.now();
       const flagged = list.some(e => e.archive);
       const rows = list.filter(e => e.start <= now && (e.now || !flagged || e.archive)).sort((a, b) => b.start - a.start).slice(0, 120);
-      if (!rows.length) { status.textContent = 'No replays are listed for this channel.'; return; }
+      if (!rows.length) { status.textContent = tr('No replays are listed for this channel.'); return; }
       drawerBody.removeChild(status);
       let day = '', first = null, nowBtn = null;
       rows.forEach(e => {
@@ -1465,7 +1465,7 @@ const Player = (() => {
         }
         const isNow = e.start <= now && e.end > now;
         const b = dItem({
-          time: hhmm(e.start), name: e.title, sub: isNow ? 'On now · plays from the start' : '',
+          time: hhmm(e.start), name: e.title, sub: isNow ? tr('On now · plays from the start') : '',
           onClick: () => playCatchup(e)
         });
         if (!first) first = b;
@@ -1479,12 +1479,12 @@ const Player = (() => {
 
   function buildTracks(focusKey) {
     drawerBody.innerHTML = '';
-    drawerBody.appendChild(dTitle('Audio & Subtitles'));
+    drawerBody.appendChild(dTitle(tr('Audio & Subtitles')));
     const audio = audioOptions(), subs = subtitleOptions();
     if (!audio.length && !subs.length) {
       const e = document.createElement('div');
       e.className = 'd-empty';
-      e.textContent = 'This stream has no alternate audio or subtitles.';
+      e.textContent = tr('This stream has no alternate audio or subtitles.');
       drawerBody.appendChild(e);
       return null;
     }
@@ -1496,12 +1496,12 @@ const Player = (() => {
       const col = document.createElement('div');
       col.className = 'd-col';
       const h = document.createElement('h4');
-      h.textContent = trio[0];
+      h.textContent = tr(trio[0]);
       col.appendChild(h);
       if (!trio[1].length) {
         const e = document.createElement('div');
         e.className = 'd-empty';
-        e.textContent = 'None';
+        e.textContent = tr('None');
         col.appendChild(e);
       }
       trio[1].forEach((o, i) => {
@@ -1516,7 +1516,7 @@ const Player = (() => {
     if (subs.length) {
       const sect = document.createElement('div');
       sect.className = 'd-sect';
-      sect.textContent = 'Subtitle style';
+      sect.textContent = tr('Subtitle style');
       drawerBody.appendChild(sect);
       const chips = document.createElement('div');
       chips.className = 'd-chips';
@@ -1533,10 +1533,10 @@ const Player = (() => {
         if (key === focusKey) focusEl = c;
       };
       SUB_SIZES.forEach(s => chip(s.name, st.size === s.id, 'size' + s.id, () => save({ size: s.id, bg: st.size ? st.bg : true }, 'size' + s.id)));
-      chip('Dark background', !!st.bg, 'bg', () => save({ size: st.size || 'm', bg: !st.bg }, 'bg'));
+      chip(tr('Dark background'), !!st.bg, 'bg', () => save({ size: st.size || 'm', bg: !st.bg }, 'bg'));
       const hint = document.createElement('div');
       hint.className = 'd-hint';
-      hint.textContent = 'Size applies to subtitles the app can style.';
+      hint.textContent = tr('Size applies to subtitles the app can style.');
       drawerBody.appendChild(hint);
     }
     focusEl = focusEl || drawerBody.querySelector('.d-item');
@@ -1546,13 +1546,13 @@ const Player = (() => {
 
   function buildSpeed() {
     drawerBody.innerHTML = '';
-    drawerBody.appendChild(dTitle('Playback speed'));
+    drawerBody.appendChild(dTitle(tr('Playback speed')));
     let cur = null;
     SPEEDS.forEach(s => {
       const on = video.playbackRate === s;
       const b = dItem({
-        name: s === 1 ? 'Normal' : s + 'x', check: on,
-        onClick: () => { video.playbackRate = s; B.speed.querySelector('.plabel').textContent = s === 1 ? 'Speed' : 'Speed ' + s + 'x'; buildSpeed(); const nb = drawerBody.querySelectorAll('.d-item')[SPEEDS.indexOf(s)]; if (nb) nb.focus(); }
+        name: s === 1 ? tr('Normal') : s + 'x', check: on,
+        onClick: () => { video.playbackRate = s; B.speed.querySelector('.plabel').textContent = s === 1 ? tr('Speed') : tr('Speed {n}', { n: s + 'x' }); buildSpeed(); const nb = drawerBody.querySelectorAll('.d-item')[SPEEDS.indexOf(s)]; if (nb) nb.focus(); }
       });
       if (on) cur = b;
       drawerBody.appendChild(b);
@@ -1562,7 +1562,7 @@ const Player = (() => {
 
   function buildPicture() {
     drawerBody.innerHTML = '';
-    drawerBody.appendChild(dTitle('Picture size'));
+    drawerBody.appendChild(dTitle(tr('Picture size')));
     let cur = null;
     PICTURES.forEach((p, i) => {
       const b = dItem({
@@ -1574,20 +1574,20 @@ const Player = (() => {
     });
     const hint = document.createElement('div');
     hint.className = 'd-hint';
-    hint.textContent = 'Blue key changes the size too. If nothing changes, this TV player ignores that size.';
+    hint.textContent = tr('Blue key changes the size too. If nothing changes, this TV player ignores that size.');
     drawerBody.appendChild(hint);
     return cur;
   }
 
   function buildSleep() {
     drawerBody.innerHTML = '';
-    drawerBody.appendChild(dTitle('Sleep timer'));
-    const opts = [{ label: 'Off', on: !sleepAt && !sleepEnd, set: () => { cancelSleep(); toast('Sleep timer off'); } }];
-    [30, 60, 90, 120].forEach(m => opts.push({ label: m + ' minutes', on: false, set: () => setSleep(m) }));
+    drawerBody.appendChild(dTitle(tr('Sleep timer')));
+    const opts = [{ label: tr('Off'), on: !sleepAt && !sleepEnd, set: () => { cancelSleep(); toast(tr('Sleep timer off')); } }];
+    [30, 60, 90, 120].forEach(m => opts.push({ label: tr('{n} minutes', { n: m }), on: false, set: () => setSleep(m) }));
     if (!isLive()) {
       opts.push({
-        label: ctx && ctx.type === 'series' ? 'End of this episode' : 'End of this film', on: sleepEnd,
-        set: () => { sleepEnd = true; sleepAt = 0; sleepWarnShown = false; updateSleepLabel(); toast('Stops at the end'); }
+        label: ctx && ctx.type === 'series' ? tr('End of this episode') : tr('End of this film'), on: sleepEnd,
+        set: () => { sleepEnd = true; sleepAt = 0; sleepWarnShown = false; updateSleepLabel(); toast(tr('Stops at the end')); }
       });
     }
     let cur = null;
@@ -1703,7 +1703,7 @@ const Player = (() => {
     const dir = { 37: 'LEFT', 38: 'UP', 39: 'RIGHT', 40: 'DOWN' }[k];
     idle();
 
-    if (sleepWarnShown) { e.preventDefault(); cancelSleep(); toast('Sleep timer cancelled'); return; }
+    if (sleepWarnShown) { e.preventDefault(); cancelSleep(); toast(tr('Sleep timer cancelled')); return; }
     if (stillOpen) { stillKey(e, k, dir); return; }
     if (pauseCardShown && k === KEYS.BACK) { // Back only puts the card away
       e.preventDefault();
@@ -1761,7 +1761,7 @@ const Player = (() => {
     if (!info || !info.fav) return;
     const on = API.toggleFav(info.fav);
     refreshFav();
-    toast(on ? '★ Added to favorites' : 'Removed from favorites');
+    toast(on ? '★ ' + tr('Added to favorites') : tr('Removed from favorites'));
   }
 
   // ---------- wiring ----------
@@ -1785,7 +1785,7 @@ const Player = (() => {
   skipBtn.addEventListener('click', doSkip);
   stillGo.addEventListener('click', () => { hideStill(); idle(); wantPlay = true; markFinished(); playIndex(ctx.index + 1); });
   stillBack.addEventListener('click', () => { hideStill(); back(); });
-  sleepKeep.addEventListener('click', () => { cancelSleep(); toast('Sleep timer cancelled'); });
+  sleepKeep.addEventListener('click', () => { cancelSleep(); toast(tr('Sleep timer cancelled')); });
 
   seekbar.addEventListener('click', (e) => {
     if (isLive() || !hasDuration()) return;

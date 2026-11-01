@@ -15,9 +15,9 @@ var UAS = [
 var uaIndex = 0;
 var boundPort = 0;
 
-// One line per stream request in /tmp/lg-iptv-proxy.log, with the login masked, so a movie that
+// One line per stream request in /tmp/lumio-proxy.log, with the login masked, so a movie that
 // will not start can be read back from the TV. The file restarts when it grows past 200 KB.
-var LOG_FILE = '/tmp/lg-iptv-proxy.log';
+var LOG_FILE = '/tmp/lumio-proxy.log';
 function mask(u) {
   return String(u || '')
     .replace(/\/(movie|series|live|timeshift)\/[^\/]+\/[^\/]+\//g, '/$1/*/*/')
@@ -181,7 +181,7 @@ var images = null;
 function pictures() {
   if (!images) {
     images = require('./imgcache').create({
-      dirs: [process.env.LGIPTV_IMG_DIR, '/media/developer/temp/lgiptv-img', '/var/tmp/lgiptv-img', '/tmp/lgiptv-img'],
+      dirs: [process.env.LUMIO_IMG_DIR, '/media/developer/temp/lumio-img', '/var/tmp/lumio-img', '/tmp/lumio-img'],
       fetch: function (url, cb) { fetchBest(url, null, cb); }
     });
   }

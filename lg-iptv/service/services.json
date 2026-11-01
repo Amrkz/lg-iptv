@@ -1,9 +1,9 @@
 {
-  "id": "com.example.lgiptv.proxy",
+  "id": "com.amrkz.lumioplayer.proxy",
   "description": "Local stream proxy",
   "services": [
     {
-      "name": "com.example.lgiptv.proxy",
+      "name": "com.amrkz.lumioplayer.proxy",
       "description": "Local stream proxy",
       "commands": [
         {

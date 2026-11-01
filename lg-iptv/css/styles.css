@@ -1,4 +1,4 @@
-/* LG IPTV — "cinema marquee": near-black ink, condensed black display type, one signal red.
+/* Lumio Player — "cinema marquee": near-black ink, condensed black display type, one signal red.
    Written for older webOS Chromium: no inset, no flex gap, no outline-radius reliance (focus is a box-shadow ring). */
 
 @font-face { font-family: "Marquee"; font-weight: 900; font-display: swap; src: url("../assets/fonts/display-900.woff2") format("woff2"); }
@@ -397,3 +397,42 @@ nav .navbtn + .navbtn { margin-left: 8px; }
 /* mini bar: a slimmer thread */
 #player .mini-bar { height: 10px; background: rgba(255, 255, 255, 0.25); }
 #player .mini-bar i { box-shadow: 0 0 10px rgba(229, 9, 20, 0.7); }
+
+/* ---------- Languages ---------- */
+/* the button that switches language: it shows the name of the language it switches to */
+.langbtn { font-size: 24px; }
+#login-lang { position: absolute; top: 40px; right: var(--gutter); z-index: 5; background: rgba(255, 255, 255, 0.1); }
+#login-lang:focus { background: #fff; }
+#home .topbar #lang { margin-right: 8px; }
+
+/* Arabic joins its letters: no letter spacing and no capitals, anywhere */
+html[lang="ar"] *, html[lang="ar"] *::before, html[lang="ar"] *::after { letter-spacing: 0 !important; text-transform: none !important; }
+/* text in the left-to-right parts (rows, hero, player) follows its own script, so Arabic names line up on the right */
+html[lang="ar"] .card .title, html[lang="ar"] .row h3, html[lang="ar"] .hero h2, html[lang="ar"] .hero p, html[lang="ar"] .hero-meta,
+html[lang="ar"] .hero-kicker, html[lang="ar"] .ov-title, html[lang="ar"] .ov-sub, html[lang="ar"] .bn-line, html[lang="ar"] .pc-title,
+html[lang="ar"] .pc-meta, html[lang="ar"] .pc-plot, html[lang="ar"] .up-title, html[lang="ar"] .d-item, html[lang="ar"] .d-empty,
+html[lang="ar"] .d-hint, html[lang="ar"] .d-sect, html[lang="ar"] .cb-title, html[lang="ar"] .cb-sub, html[lang="ar"] .d-title { unicode-bidi: plaintext; text-align: start; }
+html[lang="ar"] .card.noart .title { text-align: center; }
+
+/* the screens that mirror: sign in, top bar, dialogs */
+html[dir="rtl"] #login-lang { right: auto; left: var(--gutter); }
+html[dir="rtl"] .login-brand { padding-right: 0; padding-left: 80px; }
+html[dir="rtl"] .tabs .tab + .tab { margin-left: 0; margin-right: 12px; }
+html[dir="rtl"] .form input { direction: ltr; text-align: left; }
+html[dir="rtl"] .login-help { left: auto; right: var(--gutter); }
+html[dir="rtl"] .no-content-notice { right: auto; left: var(--gutter); text-align: left; }
+html[dir="rtl"] nav { margin-left: 0; margin-right: 56px; }
+html[dir="rtl"] nav .navbtn + .navbtn { margin-left: 0; margin-right: 8px; }
+html[dir="rtl"] .dot { margin: 0 28px 0 10px; }
+html[dir="rtl"] .hint .dot:first-child { margin-left: 10px; margin-right: 0; }
+html[dir="rtl"] #home .topbar #lang { margin-right: 0; margin-left: 8px; }
+html[dir="rtl"] .picker-panel, html[dir="rtl"] .exit-actions { text-align: start; }
+html[dir="rtl"] .exit-actions .d-item + .d-item { margin-left: 0; margin-right: 18px; }
+/* the top bar: one line for the logo, the menu, the language and Logout; the colour-key hint sits under it */
+.navbtn, .hint, .logo, .hint span { white-space: nowrap; }
+.hint { position: absolute; top: 88px; right: var(--gutter); margin: 0; font-size: 20px; }
+#home .topbar #lang { margin-left: auto; margin-right: 8px; }
+html[dir="rtl"] .hint { right: auto; left: var(--gutter); }
+html[dir="rtl"] #home .topbar #lang { margin-left: 8px; margin-right: auto; }
+/* the hero keeps the left edge of the rows below it */
+html[lang="ar"] .hero h2, html[lang="ar"] .hero p, html[lang="ar"] .hero-meta { text-align: left; }

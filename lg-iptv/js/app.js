@@ -40,7 +40,7 @@ const App = (() => {
     const out = {
       url: API.streamUrl(it, kind),
       title: it.seriesName || it.name || it.title || '',
-      subtitle: it.seriesName ? 'S' + it.season + ':E' + it.ep + '  ' + it.epTitle : '',
+      subtitle: it.seriesName ? tr('S{s}:E{e}', { s: it.season, e: it.ep }) + '  ' + it.epTitle : '',
       icon: it.icon || it.stream_icon || it.cover || '',
       fav: favOf(it, kind),
       alt: kind === 'live' ? API.liveAltUrl(it) : null
@@ -58,7 +58,7 @@ const App = (() => {
   // text for the "paused" card: plot, year, rating, genre
   function detailsFor(it, kind) {
     if (kind === 'episode') {
-      return Promise.resolve({ meta: 'S' + it.season + ':E' + it.ep + '  ·  ' + it.epTitle, plot: it.plot || '' });
+      return Promise.resolve({ meta: tr('S{s}:E{e}', { s: it.season, e: it.ep }) + '  ·  ' + it.epTitle, plot: it.plot || '' });
     }
     if (kind === 'movies' && it.stream_id) {
       return API.getVodInfoCached(it.stream_id).then(r => {
@@ -87,11 +87,11 @@ const App = (() => {
       const num = (e) => Number(e.episode_num) || 0;
       const list = raw.map((e, i) => ({ e, i })).sort((a, b) => (num(a.e) - num(b.e)) || (a.i - b.i)).map(x => x.e);
       const key = 's' + sn;
-      cats.push({ category_id: key, category_name: 'Season ' + sn });
+      cats.push({ category_id: key, category_name: tr('Season {n}', { n: sn }) });
       map[key] = list.map(ep => {
         const o = {
           name: 'E' + (ep.episode_num || '?') + ' · ' + (ep.title || 'Episode'),
-          epTitle: ep.title || 'Episode',
+          epTitle: ep.title || tr('Episode'),
           season: sn,
           ep: ep.episode_num || '?',
           icon: (ep.info && ep.info.movie_image) || series.cover || '',
@@ -192,7 +192,7 @@ const App = (() => {
       g.list.sort((a, b) => (Q_RANK[b.q] || 0) - (Q_RANK[a.q] || 0)); // best first
       const out = Object.assign({}, g.list[0].item);
       out.name = cleanTitle(out.name || out.title || '');
-      out._variants = g.list.map(v => ({ item: v.item, label: v.q || 'Standard' }));
+      out._variants = g.list.map(v => ({ item: v.item, label: v.q || tr('Standard') }));
       const seen = {};
       out._qualities = out._variants.map(v => v.label).filter(l => (seen[l] ? false : (seen[l] = true)));
       return out;
@@ -244,7 +244,7 @@ const App = (() => {
         if (!list.length) return;
         const t = (ms) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const now = list[0], next = list[1];
-        UI.enrichHero(hero(), item, { metaText: 'Now  ' + now.title + '  (' + t(now.start) + '\u2013' + t(now.end) + ')' + (next ? '     Next  ' + next.title : '') });
+        UI.enrichHero(hero(), item, { metaText: tr('Now') + '  ' + now.title + '  (' + t(now.start) + '\u2013' + t(now.end) + ')' + (next ? '     ' + tr('Next') + '  ' + next.title : '') });
       });
     } else if (kind === 'movies' && item.stream_id && !item.plot) {
       API.getVodInfoCached(item.stream_id).then(r => {
@@ -344,11 +344,11 @@ const App = (() => {
     stopSlideshow();
     slides = [];
     UI.clearHero(hero());
-    UI.setMessage(rows(), 'Loading…');
+    UI.setMessage(rows(), tr('Loading…'));
 
     return API.getCategories(kind).then(cats => {
       if (id !== loadId) return;
-      const allCats = cats && cats.length ? cats : [{ category_id: 'all', category_name: 'All' }];
+      const allCats = cats && cats.length ? cats : [{ category_id: 'all', category_name: tr('All') }];
       const categories = allCats.slice(0, MAX_CATS);
       const itemsByCat = {};
       const failures = [];
@@ -371,13 +371,13 @@ const App = (() => {
         if (allCats.length > 1) {
           // first row lists EVERY category, so panels with hundreds of them stay reachable
           itemsByCat.__cats = allCats.map(c => ({ name: c.category_name, cat: c }));
-          shown = [{ category_id: '__cats', category_name: 'All categories', limit: 1000 }].concat(categories);
+          shown = [{ category_id: '__cats', category_name: tr('All categories'), limit: 1000 }].concat(categories);
         }
         if (kind === 'live') {
           const rec = API.getRecent();
           if (rec.length) {
             itemsByCat.__recent = rec;
-            shown = [{ category_id: '__recent', category_name: 'Recently watched', limit: 20 }].concat(shown);
+            shown = [{ category_id: '__recent', category_name: tr('Recently watched'), limit: 20 }].concat(shown);
           }
         }
         if (kind === 'movies' || kind === 'series') {
@@ -385,18 +385,18 @@ const App = (() => {
           const seen = watchedRow(kind, cont);
           if (seen.length) {
             itemsByCat.__rec = seen;
-            shown = [{ category_id: '__rec', category_name: 'Recently Watched', limit: 20 }].concat(shown);
+            shown = [{ category_id: '__rec', category_name: tr('Recently Watched'), limit: 20 }].concat(shown);
           }
           if (cont.length) {
             itemsByCat.__cont = cont;
-            shown = [{ category_id: '__cont', category_name: 'Continue Watching', limit: 20 }].concat(shown);
+            shown = [{ category_id: '__cont', category_name: tr('Continue Watching'), limit: 20 }].concat(shown);
           }
         }
         render(shown, itemsByCat, kind);
         setSlides(categories, itemsByCat, kind);
       });
     }).catch(e => {
-      if (id === loadId) UI.setMessage(rows(), 'Could not load: ' + (e && e.message ? e.message : e));
+      if (id === loadId) UI.setMessage(rows(), tr('Could not load: {msg}', { msg: e && e.message ? e.message : e }));
     });
   }
 
@@ -405,7 +405,7 @@ const App = (() => {
     view = 'category';
     stopSlideshow();
     UI.clearHero(hero());
-    UI.setMessage(rows(), 'Loading\u2026');
+    UI.setMessage(rows(), tr('Loading…'));
     API.getStreams(kind, cat.category_id).then(items => {
       if (id !== loadId) return;
       items = Array.isArray(items) ? items : [];
@@ -417,7 +417,7 @@ const App = (() => {
       const firstCard = UI.$('.card');
       if (firstCard) firstCard.focus();
     }).catch(e => {
-      if (id === loadId) UI.setMessage(rows(), 'Could not load: ' + (e && e.message ? e.message : e));
+      if (id === loadId) UI.setMessage(rows(), tr('Could not load: {msg}', { msg: e && e.message ? e.message : e }));
     });
   }
 
@@ -449,7 +449,7 @@ const App = (() => {
   function showEpisodes(series) {
     const id = ++loadId;
     view = 'episodes';
-    UI.setMessage(rows(), 'Loading episodes…');
+    UI.setMessage(rows(), tr('Loading episodes…'));
     UI.setHero(hero(), series, 'series');
     API.getSeriesInfo(series.series_id).then(info => {
       if (id !== loadId) return;
@@ -459,7 +459,7 @@ const App = (() => {
       const firstCard = UI.$('.card');
       if (firstCard) firstCard.focus();
     }).catch(e => {
-      if (id === loadId) UI.setMessage(rows(), 'Could not load episodes: ' + (e && e.message ? e.message : e));
+      if (id === loadId) UI.setMessage(rows(), tr('Could not load episodes: {msg}', { msg: e && e.message ? e.message : e }));
     });
   }
 
@@ -470,7 +470,7 @@ const App = (() => {
     setActiveNav('fav');
     stopSlideshow();
     UI.clearHero(hero());
-    const favCats = [{ category_id: 'fav', category_name: 'Favorites' }], favMap = { fav: API.getFavs() };
+    const favCats = [{ category_id: 'fav', category_name: tr('Favorites') }], favMap = { fav: API.getFavs() };
     render(favCats, favMap, 'fav');
     slides = favMap.fav.slice(0, 6);
     slideKind = 'fav';
@@ -494,16 +494,16 @@ const App = (() => {
     UI.clearHero(hero());
     const cats = [], map = {};
     const cont = API.listProgress().slice(0, 20).map(e => ({ name: e.name, icon: e.icon, url: e.url, _cont: e }));
-    if (cont.length) { cats.push({ category_id: '__cont', category_name: 'Continue Watching', kind: 'recent', limit: 20 }); map.__cont = cont; }
+    if (cont.length) { cats.push({ category_id: '__cont', category_name: tr('Continue Watching'), kind: 'recent', limit: 20 }); map.__cont = cont; }
     const contMovies = cont.filter(e => e._cont.kind === 'movies'), contSeries = cont.filter(e => e._cont.kind === 'series');
     const seenMovies = watchedRow('movies', contMovies), seenSeries = watchedRow('series', contSeries);
-    if (seenMovies.length) { cats.push({ category_id: '__wm', category_name: 'Recently Watched Movies', kind: 'movies', limit: 20 }); map.__wm = seenMovies; }
-    if (seenSeries.length) { cats.push({ category_id: '__ws', category_name: 'Recently Watched Series', kind: 'series', limit: 20 }); map.__ws = seenSeries; }
+    if (seenMovies.length) { cats.push({ category_id: '__wm', category_name: tr('Recently Watched Movies'), kind: 'movies', limit: 20 }); map.__wm = seenMovies; }
+    if (seenSeries.length) { cats.push({ category_id: '__ws', category_name: tr('Recently Watched Series'), kind: 'series', limit: 20 }); map.__ws = seenSeries; }
     const rec = API.getRecent();
-    if (rec.length) { cats.push({ category_id: '__recent', category_name: 'Recent Channels', kind: 'live', limit: 20 }); map.__recent = rec; }
+    if (rec.length) { cats.push({ category_id: '__recent', category_name: tr('Recent Channels'), kind: 'live', limit: 20 }); map.__recent = rec; }
     if (!cats.length) {
       slides = [];
-      UI.setMessage(rows(), 'Nothing to resume yet. Movies and episodes you start, and channels you watch, will show up here.');
+      UI.setMessage(rows(), tr('Nothing to resume yet. Movies and episodes you start, and channels you watch, will show up here.'));
       return;
     }
     render(cats, map, 'recent');
@@ -655,7 +655,7 @@ const App = (() => {
     if (a.classList.contains('navbtn')) {
       if (dir === 'LEFT' || dir === 'RIGHT') {
         const navs = Array.from(document.querySelectorAll('#home .topbar .navbtn'));
-        const n = navs[navs.indexOf(a) + (dir === 'RIGHT' ? 1 : -1)];
+        const n = navs[navs.indexOf(a) + (dir === 'RIGHT' ? 1 : -1) * (I18n.rtl ? -1 : 1)]; // the top bar is mirrored in Arabic
         if (n) n.focus();
         return true;
       }
@@ -718,7 +718,7 @@ const App = (() => {
 
   // ---------- search ----------
   let searchTimer = null, searchSeq = 0;
-  const SEARCH_HINT = 'Type at least two letters to search channels, movies and series.';
+  const SEARCH_HINT = tr('Type at least two letters to search channels, movies and series.');
 
   function showSearch() {
     loadId++;
@@ -738,20 +738,20 @@ const App = (() => {
     q = (q || '').trim();
     if (q.length < 2) { UI.setMessage(rows(), SEARCH_HINT); return; }
     const seq = ++searchSeq;
-    UI.setMessage(rows(), 'Searching\u2026');
+    UI.setMessage(rows(), tr('Searching…'));
     API.search(q).then(res => {
       if (seq !== searchSeq || view !== 'search') return;
       const cats = [], map = {};
-      [['live', 'Live TV'], ['movies', 'Movies'], ['series', 'Series']].forEach(pair => {
+      [['live', tr('Live TV')], ['movies', tr('Movies')], ['series', tr('Series')]].forEach(pair => {
         let list = res[pair[0]] || [];
         if (pair[0] !== 'live') list = groupQualities(list);
         if (list.length) { cats.push({ category_id: 's_' + pair[0], category_name: pair[1], kind: pair[0], limit: 40 }); map['s_' + pair[0]] = list; }
       });
-      if (!cats.length) { UI.setMessage(rows(), 'No results for "' + q + '".'); return; }
+      if (!cats.length) { UI.setMessage(rows(), tr('No results for "{q}".', { q })); return; }
       render(cats, map, 'search'); // render() also refreshes the favorite keys that isFav reads
       if (focusFirst) { const l = railRows(); if (l.length) focusAt(l[0], 0, 0); }
     }).catch(e => {
-      if (seq === searchSeq) UI.setMessage(rows(), 'Search failed: ' + (e && e.message ? e.message : e));
+      if (seq === searchSeq) UI.setMessage(rows(), tr('Search failed: {msg}', { msg: e && e.message ? e.message : e }));
     });
   }
 
@@ -862,7 +862,7 @@ const App = (() => {
     const btn = UI.$('#login-btn');
     const err = UI.$('#login-err');
     err.textContent = '';
-    btn.textContent = 'Signing in…';
+    btn.textContent = tr('Signing in…');
     let p;
     if (UI.$('.tab.active').dataset.tab === 'xtream') {
       p = API.xtreamLogin(UI.$('#x-server').value.trim(), UI.$('#x-user').value.trim(), UI.$('#x-pass').value.trim());
@@ -874,10 +874,10 @@ const App = (() => {
       setActiveNav(startSection());
       landing();
     }).catch(e => {
-      err.textContent = (e && e.message) || 'Login failed';
+      err.textContent = (e && e.message) || tr('Login failed');
     }).then(() => {
       busy = false;
-      btn.textContent = 'Sign In';
+      btn.textContent = tr('Sign in');
     });
   });
 
@@ -885,6 +885,15 @@ const App = (() => {
     UI.$(sel).addEventListener('keydown', (e) => {
       if (e.keyCode === KEYS.ENTER) UI.$('#login-btn').click();
     });
+  });
+
+  // language: one button on the sign-in screen and one in the top bar; it shows the language it will switch to
+  ['#login-lang', '#lang'].forEach(sel => {
+    const b = UI.$(sel);
+    const to = I18n.next();
+    b.textContent = to.name;
+    b.setAttribute('lang', to.id);
+    b.addEventListener('click', () => I18n.set(to.id));
   });
 
   UI.$('#logout').addEventListener('click', () => {
@@ -897,11 +906,11 @@ const App = (() => {
   if (API.getConfig()) {
     UI.showScreen('home');
     setActiveNav(startSection()); // the menu shows the right tab while the list loads
-    UI.setMessage(rows(), 'Loading…');
+    UI.setMessage(rows(), tr('Loading…'));
     API.ensureLoaded().then(() => landing()).catch(e => {
       API.clearConfig();
       UI.showScreen('login');
-      UI.$('#login-err').textContent = (e && e.message) || 'Could not restore session';
+      UI.$('#login-err').textContent = (e && e.message) || tr('Could not restore session');
     });
   } else {
     UI.showScreen('login');

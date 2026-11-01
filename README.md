@@ -1,4 +1,4 @@
-# LG IPTV
+# Lumio Player
 
 An IPTV player for LG webOS TVs. It talks to any Xtream Codes provider (`player_api.php`) and plays live channels, films and series with a Netflix-style player.
 
@@ -13,6 +13,13 @@ You enter your own server, username and password in the app. No provider or cred
 - Player: picture modes (Fit, Fill, Zoom, Stretch, 4:3), audio and subtitle choice with language memory, subtitle size, playback speed, pause info card, sleep timer.
 - Catch-up (Start over and a replay guide) on channels where the provider offers an archive.
 - Recovery: a stalled stream reconnects up to 3 times; a live channel paused for 30 s or more reopens at the live point.
+- Languages: English and Arabic (العربية). The first start follows the TV's menu language; the language button on the sign-in screen and in the top bar switches it. Arabic mirrors the sign-in screen, top bar and dialogs; rows, the hero and the player keep their left-to-right layout so the arrow keys, scrolling and the seek bar behave the same.
+
+## Adding a language
+
+1. Copy `lg-iptv/js/lang-ar.js` to `lang-<id>.js` and translate the values (the keys are the English texts used in the app; keep the `{placeholders}`).
+2. Add the language to `LANGS` in `lg-iptv/js/i18n.js` (`rtl: true` for a right-to-left language) and load the file in `lg-iptv/index.html` after `i18n.js`.
+3. Add font faces for the script in `lg-iptv/css/styles.css` if Latin and Arabic fonts do not cover it.
 
 ## How it works
 
@@ -50,19 +57,19 @@ ares-setup-device
 ares-package lg-iptv lg-iptv/service -o .
 
 # Install and start it
-ares-install --device tv com.example.lgiptv_1.0.0_all.ipk
-ares-launch  --device tv com.example.lgiptv
+ares-install --device tv com.amrkz.lumioplayer_1.0.0_all.ipk
+ares-launch  --device tv com.amrkz.lumioplayer
 ```
 
 Check that the helper service is running (healthy output includes `0.0.0.0:18491 LISTEN`):
 
 ```sh
-ares-novacom --device tv --run "netstat -ltn | grep 1849; tail -3 /tmp/lg-iptv-proxy.log"
+ares-novacom --device tv --run "netstat -ltn | grep 1849; tail -3 /tmp/lumio-proxy.log"
 ```
 
 ### Things that went wrong before
 
-- The TV's Luna bus rejects service names that contain `-`. The app ID is `com.example.lgiptv` and the service is `com.example.lgiptv.proxy` for that reason.
+- The TV's Luna bus rejects service names that contain `-`. The app ID is `com.amrkz.lumioplayer` and the service is `com.amrkz.lumioplayer.proxy` for that reason.
 - A `node boot.js` started by hand over SSH keeps old code in memory after a reinstall and can hold port `18491`. Check `ps -ef | grep node` before trusting a test.
 - On the webOS video plane, any CSS transform, opacity or full-screen box over the `<video>` drops the picture. Picture modes therefore resize the `<video>` box only.
 

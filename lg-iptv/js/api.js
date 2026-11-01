@@ -7,27 +7,27 @@ const API = (() => {
   const load = (k) => { try { return JSON.parse(localStorage.getItem('iptv_' + k)); } catch (e) { return null; } };
 
   function niceError(e) {
-    if (e instanceof SyntaxError) return new Error('Bad response from server');
-    if (e instanceof TypeError) return new Error('Cannot reach server (network or CORS blocked)');
+    if (e instanceof SyntaxError) return new Error(tr('Bad response from server'));
+    if (e instanceof TypeError) return new Error(tr('Cannot reach server (network or CORS blocked)'));
     return e;
   }
 
   function withTimeout(promise, ms) {
     return new Promise((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error('Server timed out')), ms);
+      const t = setTimeout(() => reject(new Error(tr('Server timed out'))), ms);
       promise.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
     });
   }
 
   function fetchJson(url) {
     return withTimeout(fetch(url), 30000)
-      .then(r => { if (!r.ok) throw new Error('Server error ' + r.status); return r.json(); })
+      .then(r => { if (!r.ok) throw new Error(tr('Server error {code}', { code: r.status })); return r.json(); })
       .catch(e => { throw niceError(e); });
   }
 
   function fetchText(url) {
     return withTimeout(fetch(url), 60000)
-      .then(r => { if (!r.ok) throw new Error('Server error ' + r.status); return r.text(); })
+      .then(r => { if (!r.ok) throw new Error(tr('Server error {code}', { code: r.status })); return r.text(); })
       .catch(e => { throw niceError(e); });
   }
 
@@ -68,13 +68,13 @@ const API = (() => {
     const server = parsed.server;
     user = user || parsed.user;
     pass = pass || parsed.pass;
-    if (!server || !user || !pass) return Promise.reject(new Error('Fill in server, username and password'));
+    if (!server || !user || !pass) return Promise.reject(new Error(tr('Fill in server, username and password')));
     const url = `${server}/player_api.php?username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`;
     return fetchJson(url).then(j => {
       const ui = j && j.user_info;
-      if (!ui || Number(ui.auth) !== 1) throw new Error('Login refused: check username and password');
-      if (ui.status && String(ui.status).toLowerCase() !== 'active') throw new Error('Account ' + ui.status);
-      if (ui.exp_date && Number(ui.exp_date) > 0 && Number(ui.exp_date) * 1000 < Date.now()) throw new Error('Account expired');
+      if (!ui || Number(ui.auth) !== 1) throw new Error(tr('Login refused: check username and password'));
+      if (ui.status && String(ui.status).toLowerCase() !== 'active') throw new Error(tr('Account {status}', { status: ui.status }));
+      if (ui.exp_date && Number(ui.exp_date) > 0 && Number(ui.exp_date) * 1000 < Date.now()) throw new Error(tr('Account expired'));
       const formats = Array.isArray(ui.allowed_output_formats) ? ui.allowed_output_formats : [];
       clearLists();
       cfg = { type: 'xtream', server, user, pass, formats };
@@ -86,10 +86,10 @@ const API = (() => {
 
   // Only the URL is persisted (playlists can be many MB and overflow localStorage).
   function m3uLogin(url) {
-    if (!url) return Promise.reject(new Error('Enter a playlist URL'));
+    if (!url) return Promise.reject(new Error(tr('Enter a playlist URL')));
     return fetchText(url).then(text => {
       const items = parseM3U(text);
-      if (!items.length) throw new Error('No channels found in playlist');
+      if (!items.length) throw new Error(tr('No channels found in playlist'));
       m3uItems = items;
       cfg = { type: 'm3u', url };
       store('cfg', cfg);
@@ -130,9 +130,9 @@ const API = (() => {
         const logoMatch = line.match(/tvg-logo="([^"]*)"/);
         const groupMatch = line.match(/group-title="([^"]*)"/);
         cur = {
-          name: nameMatch && nameMatch[1].trim() ? nameMatch[1].trim() : 'Unknown',
+          name: nameMatch && nameMatch[1].trim() ? nameMatch[1].trim() : tr('Unknown'),
           icon: logoMatch ? logoMatch[1] : '',
-          group: groupMatch && groupMatch[1] ? groupMatch[1] : 'Other',
+          group: groupMatch && groupMatch[1] ? groupMatch[1] : tr('Other'),
           url: ''
         };
       } else if (line && line.charAt(0) !== '#' && cur) {
@@ -155,7 +155,7 @@ const API = (() => {
     const hit = listCache[key];
     if (hit && Date.now() - hit.t < LIST_TTL) return hit.p;
     const p = make().then(v => {
-      if (!Array.isArray(v)) throw new Error('The provider did not send a list');
+      if (!Array.isArray(v)) throw new Error(tr('The provider did not send a list'));
       return v;
     }).catch(e => { delete listCache[key]; throw e; });
     listCache[key] = { t: Date.now(), p };
@@ -437,7 +437,7 @@ const API = (() => {
         };
         try {
           // This TV's bus rejects service names that contain '-'.
-          proxyBridge.call('luna://com.example.lgiptv.proxy/alive', '{"subscribe":true}');
+          proxyBridge.call('luna://com.amrkz.lumioplayer.proxy/alive', '{"subscribe":true}');
         } catch (e) {
           proxyError = String(e && e.message || e);
           clearTimeout(timer);

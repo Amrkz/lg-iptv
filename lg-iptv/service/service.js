@@ -10,7 +10,7 @@ var waiters = [];
 var subscribers = {};
 
 function log(line) {
-  try { fs.appendFileSync('/tmp/lg-iptv-proxy.log', String(line) + '\n'); } catch (e) {}
+  try { fs.appendFileSync('/tmp/lumio-proxy.log', String(line) + '\n'); } catch (e) {}
 }
 
 function answer(message, err) {

@@ -1,10 +1,10 @@
 {
-  "id": "com.example.lgiptv",
+  "id": "com.amrkz.lumioplayer",
   "version": "1.0.0",
-  "vendor": "Example",
+  "vendor": "Amrkz",
   "type": "web",
   "main": "index.html",
-  "title": "LG IPTV",
+  "title": "Lumio Player",
   "icon": "assets/icon.png",
   "largeIcon": "assets/largeIcon.png",
   "bgImage": "assets/bg.png",

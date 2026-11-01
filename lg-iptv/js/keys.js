@@ -104,8 +104,10 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     if (k === KEYS.BACK) { closeExit(); return; }
     const stay = document.getElementById('exit-stay'), leave = document.getElementById('exit-leave');
-    if (k === KEYS.LEFT || k === KEYS.UP) stay.focus();
-    else if (k === KEYS.RIGHT || k === KEYS.DOWN) leave.focus();
+    // "Stay" is the first button: on the left, or on the right when the page is mirrored (Arabic)
+    const toStay = window.I18n && I18n.rtl ? KEYS.RIGHT : KEYS.LEFT, toLeave = window.I18n && I18n.rtl ? KEYS.LEFT : KEYS.RIGHT;
+    if (k === toStay || k === KEYS.UP) stay.focus();
+    else if (k === toLeave || k === KEYS.DOWN) leave.focus();
     else if (k === KEYS.ENTER) (document.activeElement === leave ? leave : stay).click();
     return;
   }

@@ -1,5 +1,5 @@
 {
-  "name": "com.example.lgiptv.proxy",
+  "name": "com.amrkz.lumioplayer.proxy",
   "version": "1.0.0",
   "description": "Plays streams with a player identity the provider accepts",
   "main": "service.js",
