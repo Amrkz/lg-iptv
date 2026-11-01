@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="viewport" content="width=1920, height=1080, initial-scale=1" />
+  <title>LG IPTV</title>
+  <link rel="stylesheet" href="css/styles.css?v=20261101230000" />
+  <script src="lib/hls.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <div id="login" class="screen">
+      <div class="login-brand">
+        <h1>LG<span>IPTV</span></h1>
+        <p>Live channels, films and series from your own provider.</p>
+      </div>
+      <div class="login-card">
+        <div class="tabs">
+          <button class="tab active" data-tab="xtream">Xtream Codes</button>
+          <button class="tab" data-tab="m3u">M3U playlist</button>
+        </div>
+        <div id="form-xtream" class="form">
+          <label for="x-server">Server URL</label>
+          <input id="x-server" placeholder="http://host:port" autocapitalize="off" autocorrect="off" spellcheck="false" />
+          <label for="x-user">Username</label>
+          <input id="x-user" placeholder="Username" autocapitalize="off" autocorrect="off" spellcheck="false" />
+          <label for="x-pass">Password</label>
+          <input id="x-pass" type="password" placeholder="Password" />
+        </div>
+        <div id="form-m3u" class="form hidden">
+          <label for="m-url">Playlist URL</label>
+          <input id="m-url" placeholder="http://host/playlist.m3u" autocapitalize="off" autocorrect="off" spellcheck="false" />
+        </div>
+        <button id="login-btn" class="btn primary">Sign in</button>
+        <p id="login-err" class="err" role="alert"></p>
+      </div>
+      <p class="login-help">Arrow keys move &middot; OK opens the keyboard &middot; Back exits</p>
+    </div>
+
+    <div id="home" class="screen hidden">
+      <header class="topbar">
+        <span class="logo">LG <b>IPTV</b></span>
+        <nav>
+          <button class="navbtn" data-cat="live">Live TV</button>
+          <button class="navbtn active" data-cat="movies">Movies</button>
+          <button class="navbtn" data-cat="series">Series</button>
+          <button class="navbtn" data-cat="fav">Favorites</button>
+          <button class="navbtn" data-cat="search">Search</button>
+        </nav>
+        <span class="hint"><i class="dot red"></i>Search<i class="dot green"></i>Favorites<i class="dot"></i>Add favorite<i class="dot blue"></i>Next section</span>
+        <button id="logout" class="navbtn">Logout</button>
+      </header>
+      <div id="hero" class="hero"></div>
+      <div id="rows" class="rows"></div>
+    </div>
+
+    <div id="picker" class="picker hidden" role="dialog" aria-modal="true">
+      <div class="picker-panel">
+        <div id="picker-title" class="picker-title"></div>
+        <div class="picker-sub">Choose a version to play</div>
+        <div id="picker-list"></div>
+      </div>
+    </div>
+
+    <div id="player" class="screen hidden">
+      <video id="video" playsinline></video>
+      <div id="spinner" class="spinner hidden"></div>
+      <div id="player-msg" class="player-msg"></div>
+      <div id="toast" class="toast hidden"></div>
+      <div id="chnum" class="chnum hidden"></div>
+      <div id="banner" class="banner hidden">
+        <div id="bn-top" class="bn-top"></div>
+        <div id="bn-now" class="bn-line"></div>
+        <div id="bn-next" class="bn-line dim"></div>
+      </div>
+
+      <div id="mini" class="mini hide">
+        <span id="mini-ico" class="mini-ico">&#10074;&#10074;</span>
+        <span id="mini-el" class="mini-t">0:00</span>
+        <div class="mini-bar"><i id="mini-played"></i></div>
+        <span id="mini-re" class="mini-t">-0:00</span>
+      </div>
+
+      <div id="overlay" class="overlay">
+        <div class="ov-top">
+          <button id="btn-back" class="pbtn " aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg><span class="plabel">Back</span></button>
+          <div class="ov-titles">
+            <div id="player-title" class="ov-title"></div>
+            <div id="player-sub" class="ov-sub"></div>
+          </div>
+        </div>
+        <div class="ov-bottom">
+          <div class="seek-row">
+            <span id="t-elapsed" class="tlabel">0:00</span>
+            <div id="seekbar" class="seekbar" tabindex="0">
+              <div id="sb-buf" class="sb-buf"></div>
+              <div id="sb-played" class="sb-played"></div>
+              <div id="sb-thumb" class="sb-thumb"></div>
+              <div id="sb-bubble" class="sb-bubble hidden">0:00</div>
+            </div>
+            <span id="t-remain" class="tlabel">-0:00</span>
+          </div>
+          <div class="btn-row">
+            <div class="grp">
+              <button id="btn-play" class="pbtn " aria-label="Play"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><span class="plabel">Play</span></button>
+              <button id="btn-rw" class="pbtn " aria-label="Back 10s"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12" y="15.2" text-anchor="middle" font-size="7" font-weight="700" font-family="Arial,sans-serif">10</text></svg><span class="plabel">Back 10s</span></button>
+              <button id="btn-ff" class="pbtn " aria-label="Forward 10s"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="12" y="15.2" text-anchor="middle" font-size="7" font-weight="700" font-family="Arial,sans-serif">10</text></svg><span class="plabel">Forward 10s</span></button>
+              <button id="btn-next" class="pbtn hidden" aria-label="Next episode"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg><span class="plabel">Next episode</span></button>
+              <button id="btn-start" class="pbtn hidden" aria-label="Start over"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg><span class="plabel">Start over</span></button>
+              <button id="btn-live" class="pbtn hidden" aria-label="Back to live"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/></svg><span class="plabel">Back to live</span></button>
+            </div>
+            <div class="grp">
+              <button id="btn-eps" class="pbtn hidden" aria-label="Episodes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg><span class="plabel">Episodes</span></button>
+              <button id="btn-chans" class="pbtn hidden" aria-label="Channels"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg><span class="plabel">Channels</span></button>
+              <button id="btn-guide" class="pbtn hidden" aria-label="Replay guide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 10H7v2h10v-2zm2-7h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zm-5-5H7v2h7v-2z"/></svg><span class="plabel">Replay guide</span></button>
+              <button id="btn-tracks" class="pbtn " aria-label="Audio &amp; Subtitles"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM4 12h4v2H4v-2zm10 6H4v-2h10v2zm6 0h-4v-2h4v2zm0-4H10v-2h10v2z"/></svg><span class="plabel">Audio &amp; Subtitles</span></button>
+              <button id="btn-pic" class="pbtn " aria-label="Picture size"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12h-2v3h-3v2h5v-5zM7 9h3V7H5v5h2V9zm14-6H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z"/></svg><span class="plabel">Picture</span></button>
+              <button id="btn-speed" class="pbtn " aria-label="Speed"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.38 8.57l-1.23 1.85a8 8 0 0 1-.22 7.58H5.07A8 8 0 0 1 15.58 6.85l1.85-1.23A10 10 0 0 0 3.35 19a2 2 0 0 0 1.72 1h13.85a2 2 0 0 0 1.74-1 10 10 0 0 0-.27-10.44zm-9.79 6.84a2 2 0 0 0 2.83 0l5.66-8.49-8.49 5.66a2 2 0 0 0 0 2.83z"/></svg><span class="plabel">Speed</span></button>
+              <button id="btn-sleep" class="pbtn " aria-label="Sleep timer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg><span class="plabel">Sleep timer</span></button>
+              <button id="btn-fav" class="pbtn favbtn" aria-label="Favorite"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg><span class="plabel">Favorite</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="upnext" class="upnext hidden">
+        <div id="up-thumb" class="up-thumb"></div>
+        <div class="up-text">
+          <div class="up-kicker">Next episode</div>
+          <div id="up-title" class="up-title"></div>
+          <div id="up-count" class="up-count"></div>
+          <div class="up-actions">
+            <button id="up-next" class="upbtn"><i id="up-fill" class="up-fill"></i><span>Play now</span></button>
+            <button id="up-credits" class="upbtn"><span>Watch credits</span></button>
+          </div>
+        </div>
+      </div>
+
+      <button id="skipintro" class="skipintro hidden"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg><span>Skip intro</span></button>
+
+      <div id="still" class="card-box hidden">
+        <div class="cb-title">Are you still watching?</div>
+        <div id="still-sub" class="cb-sub">Playback paused after 3 episodes in a row.</div>
+        <div class="up-actions">
+          <button id="still-go" class="upbtn"><span>Continue watching</span></button>
+          <button id="still-back" class="upbtn"><span>Back</span></button>
+        </div>
+      </div>
+
+      <div id="sleepcard" class="card-box hidden">
+        <div class="cb-title">Sleep timer</div>
+        <div id="sleep-sub" class="cb-sub"></div>
+        <div class="up-actions">
+          <button id="sleep-keep" class="upbtn"><span>Keep watching</span></button>
+        </div>
+      </div>
+
+      <div id="pausecard" class="pausecard hidden">
+        <div id="pc-title" class="pc-title"></div>
+        <div id="pc-meta" class="pc-meta"></div>
+        <div id="pc-plot" class="pc-plot"></div>
+      </div>
+
+      <div id="drawer" class="drawer hide"><div id="drawer-body"></div></div>
+    </div>
+  </div>
+  <script src="js/keys.js?v=20261101230000"></script>
+  <script src="js/api.js?v=20261101230000"></script>
+  <script src="js/ui.js?v=20261101230000"></script>
+  <script src="js/player.js?v=20261101230000"></script>
+  <script src="js/app.js?v=20261101230000"></script>
+</body>
+</html>

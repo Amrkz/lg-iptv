@@ -1,0 +1,16 @@
+{
+  "id": "com.example.lgiptv",
+  "version": "1.0.0",
+  "vendor": "Example",
+  "type": "web",
+  "main": "index.html",
+  "title": "LG IPTV",
+  "icon": "assets/icon.png",
+  "largeIcon": "assets/icon.png",
+  "bgImage": "assets/bg.png",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "handlesRelaunch": false,
+  "checkUpdateOnLaunch": false,
+  "spinnerOnLaunch": false
+}

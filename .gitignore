@@ -1,0 +1,12 @@
+# macOS
+.DS_Store
+
+# Built packages (rebuild with ares-package)
+*.ipk
+
+# Third-party Android app and notes extracted from it (contain other people's API keys)
+*.apk
+iptv.md
+
+# Tool caches
+.impeccable/

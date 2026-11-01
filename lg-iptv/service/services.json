@@ -1,0 +1,17 @@
+{
+  "id": "com.example.lgiptv.proxy",
+  "description": "Local stream proxy",
+  "services": [
+    {
+      "name": "com.example.lgiptv.proxy",
+      "description": "Local stream proxy",
+      "commands": [
+        {
+          "name": "alive",
+          "description": "Start the local player and return its port",
+          "public": true
+        }
+      ]
+    }
+  ]
+}
