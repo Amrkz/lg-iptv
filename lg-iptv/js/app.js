@@ -98,6 +98,7 @@ const App = (() => {
           plot: (ep.info && (ep.info.plot || ep.info.description)) || series.plot || '',
           url: `${c.server}/series/${u}/${p}/${ep.id}.${ep.container_extension || 'mp4'}`,
           seriesName: series.name,
+          seriesCover: series.cover || '',
           sid: series.series_id
         };
         flat.push(o);
@@ -111,7 +112,8 @@ const App = (() => {
     return {
       type: 'series', kind: 'series', items: flat, index,
       resolve: it => resolveItem(it, 'episode'),
-      details: it => detailsFor(it, 'episode')
+      details: it => detailsFor(it, 'episode'),
+      onPlay: recordSeries
     };
   }
 
@@ -127,6 +129,28 @@ const App = (() => {
       currentEpisodes = built.flat;
       Player.play(seriesCtx(built.flat, idx));
     }).catch(plain);
+  }
+
+  // ---------- watched history ----------
+  function recordMovie(it) {
+    const key = String(it.stream_id || it.url || '');
+    if (!key) return;
+    API.addWatched('movies', { key, name: it.name || it.title || '', stream_id: it.stream_id, stream_icon: it.stream_icon, icon: it.icon, container_extension: it.container_extension, url: it.url });
+  }
+  function recordSeries(ep) {
+    if (!ep || !ep.sid) return; // a playlist episode has no series to come back to
+    API.addWatched('series', { key: 's' + ep.sid, series_id: ep.sid, name: ep.seriesName || '', cover: ep.seriesCover || '' });
+  }
+
+  // "Recently Watched" for one department, without the titles already shown under Continue Watching
+  function watchedRow(kind, cont) {
+    const inCont = {};
+    cont.forEach(e => { inCont[kind === 'series' ? 's' + e._cont.sid : e.url] = true; });
+    return API.getWatched(kind).filter(w => {
+      if (kind === 'series') return !inCont[w.key];
+      const url = w.url || API.streamUrl(w, 'movies');
+      return !url || !inCont[url];
+    });
   }
 
   // ---------- quality grouping ----------
@@ -358,6 +382,11 @@ const App = (() => {
         }
         if (kind === 'movies' || kind === 'series') {
           const cont = API.listProgress(kind).slice(0, 20).map(e => ({ name: e.name, icon: e.icon, url: e.url, _cont: e }));
+          const seen = watchedRow(kind, cont);
+          if (seen.length) {
+            itemsByCat.__rec = seen;
+            shown = [{ category_id: '__rec', category_name: 'Recently Watched', limit: 20 }].concat(shown);
+          }
           if (cont.length) {
             itemsByCat.__cont = cont;
             shown = [{ category_id: '__cont', category_name: 'Continue Watching', limit: 20 }].concat(shown);
@@ -412,6 +441,7 @@ const App = (() => {
         resolve: it => resolveItem(it, kind), details: it => detailsFor(it, k === 'movies' ? 'movies' : kind)
       };
       if (ctx.type === 'live') ctx.onPlay = recordRecent;
+      else if (k === 'movies') ctx.onPlay = recordMovie;
     }
     Player.play(ctx);
   }
@@ -465,6 +495,10 @@ const App = (() => {
     const cats = [], map = {};
     const cont = API.listProgress().slice(0, 20).map(e => ({ name: e.name, icon: e.icon, url: e.url, _cont: e }));
     if (cont.length) { cats.push({ category_id: '__cont', category_name: 'Continue Watching', kind: 'recent', limit: 20 }); map.__cont = cont; }
+    const contMovies = cont.filter(e => e._cont.kind === 'movies'), contSeries = cont.filter(e => e._cont.kind === 'series');
+    const seenMovies = watchedRow('movies', contMovies), seenSeries = watchedRow('series', contSeries);
+    if (seenMovies.length) { cats.push({ category_id: '__wm', category_name: 'Recently Watched Movies', kind: 'movies', limit: 20 }); map.__wm = seenMovies; }
+    if (seenSeries.length) { cats.push({ category_id: '__ws', category_name: 'Recently Watched Series', kind: 'series', limit: 20 }); map.__ws = seenSeries; }
     const rec = API.getRecent();
     if (rec.length) { cats.push({ category_id: '__recent', category_name: 'Recent Channels', kind: 'live', limit: 20 }); map.__recent = rec; }
     if (!cats.length) {
@@ -473,7 +507,7 @@ const App = (() => {
       return;
     }
     render(cats, map, 'recent');
-    slides = cont.concat(rec).slice(0, 6);
+    slides = cont.concat(seenMovies, seenSeries, rec).slice(0, 6);
     slideKind = 'recent';
     slideIdx = 0;
     if (!refocus) startSlideshow(false);
@@ -677,7 +711,7 @@ const App = (() => {
   function onBack() {
     if (!homeVisible()) return false;
     if (pickerOpen) { closePicker(); return true; }
-    if (view === 'episodes' || view === 'category') { loadCategory(currentKind); return true; }
+    if (view === 'episodes' || view === 'category') { openSection(currentKind, false); return true; } // back to the section it came from
     if (currentKind !== 'movies') { loadCategory('movies'); return true; } // Movies is home
     return false;
   }

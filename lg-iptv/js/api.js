@@ -336,6 +336,15 @@ const API = (() => {
     return vodInfoCache[id];
   }
 
+  // ---------- recently watched movies and series ----------
+  // One short list per kind: the title, newest first. A series is kept as the series, not as an episode.
+  function getWatched(kind) { return load('watched_' + kind) || []; }
+  function addWatched(kind, entry) {
+    const list = getWatched(kind).filter(w => w.key !== entry.key);
+    list.unshift(entry);
+    store('watched_' + kind, list.slice(0, 20));
+  }
+
   // ---------- recently watched channels ----------
   function getRecent() { return load('recent') || []; }
   function addRecent(item) {
@@ -531,6 +540,6 @@ const API = (() => {
   }
   ensureProxy();
 
-  return { imgUrl, clearLists, norm, getAll, search, getShortEpg, getArchiveGuide, catchupUrls, hasArchive, pref, getIntro, setIntro, getVodInfoCached, getRecent, addRecent, progressMap, getProgress, saveProgress, removeProgress, listProgress, parseServer, getLast, liveAltUrl, xtreamLogin, m3uLogin, ensureLoaded, getConfig, clearConfig, getCategories, getStreams, streamUrl, getSeriesInfo, getVodInfo, getFavs, toggleFav, isFav, proxyUrl, get proxyError() { return proxyError; } };
+  return { getWatched, addWatched, imgUrl, clearLists, norm, getAll, search, getShortEpg, getArchiveGuide, catchupUrls, hasArchive, pref, getIntro, setIntro, getVodInfoCached, getRecent, addRecent, progressMap, getProgress, saveProgress, removeProgress, listProgress, parseServer, getLast, liveAltUrl, xtreamLogin, m3uLogin, ensureLoaded, getConfig, clearConfig, getCategories, getStreams, streamUrl, getSeriesInfo, getVodInfo, getFavs, toggleFav, isFav, proxyUrl, get proxyError() { return proxyError; } };
 })();
 window.API = API;

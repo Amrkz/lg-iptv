@@ -5,7 +5,24 @@
   <meta name="referrer" content="no-referrer" />
   <meta name="viewport" content="width=1920, height=1080, initial-scale=1" />
   <title>LG IPTV</title>
-  <link rel="stylesheet" href="css/styles.css?v=20261101170645" />
+  <link rel="stylesheet" href="css/styles.css?v=20261101173944" />
+  <script>
+    // The fonts arrive together: the page stays clear until the display, UI and Arabic faces are ready
+    // (or 2.5 s have passed), so text is never drawn in a stand-in font and then swapped.
+    (function () {
+      var root = document.documentElement;
+      if (!document.fonts || !document.fonts.load || !window.Promise) return;
+      root.className += ' fonts-wait';
+      var done = false;
+      function reveal() { if (done) return; done = true; root.className = root.className.replace(/\s*fonts-wait/, ''); }
+      var AR = '\u0639';
+      Promise.all([
+        document.fonts.load('900 52px Marquee'), document.fonts.load('500 26px Hanken'), document.fonts.load('700 26px Hanken'),
+        document.fonts.load('900 52px Marquee', AR), document.fonts.load('500 26px Hanken', AR), document.fonts.load('700 26px Hanken', AR)
+      ]).then(reveal, reveal);
+      setTimeout(reveal, 2500);
+    })();
+  </script>
   <script src="lib/hls.min.js"></script>
 </head>
 <body>
@@ -177,10 +194,10 @@
       </div>
     </div>
   </div>
-  <script src="js/keys.js?v=20261101170645"></script>
-  <script src="js/api.js?v=20261101170645"></script>
-  <script src="js/ui.js?v=20261101170645"></script>
-  <script src="js/player.js?v=20261101170645"></script>
-  <script src="js/app.js?v=20261101170645"></script>
+  <script src="js/keys.js?v=20261101173944"></script>
+  <script src="js/api.js?v=20261101173944"></script>
+  <script src="js/ui.js?v=20261101173944"></script>
+  <script src="js/player.js?v=20261101173944"></script>
+  <script src="js/app.js?v=20261101173944"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 const KEYS = {
   LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, ENTER: 13, BACK: 461,
-  PLAY: 415, PAUSE: 19, STOP: 413, RW: 412, FF: 417,
+  PLAY: 415, PAUSE: 19, PLAY_PAUSE: 179, STOP: 413, RW: 412, FF: 417,
   RED: 403, GREEN: 404, YELLOW: 405, BLUE: 406,
   CH_UP: 427, CH_DOWN: 428, PAGE_UP: 33, PAGE_DOWN: 34,
   INFO: 457, GUIDE: 458
@@ -95,6 +95,8 @@ window.pointerAiming = () => pointerAim;
 
 document.addEventListener('keydown', (e) => {
   pointerAim = false;
+  // A keyboard's Esc is Back. Every handler below reads keyCode, so say it once here.
+  if (e.keyCode === 27) { try { Object.defineProperty(e, 'keyCode', { value: KEYS.BACK }); } catch (err) { /* read-only: leave it */ } }
   const k = e.keyCode;
 
   // the exit question owns the keys while it is open

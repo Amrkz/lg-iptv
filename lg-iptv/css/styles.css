@@ -27,6 +27,8 @@
   --ring: 0 0 0 5px #fff;
 }
 
+/* held back until the fonts are ready (see the script in index.html); opacity, not visibility, so focus() still works meanwhile */
+html.fonts-wait body { opacity: 0; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 *::-webkit-scrollbar { display: none; }
 html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--ink); color: var(--text); font-family: var(--ui); font-weight: 500; font-size: 26px; }

@@ -1664,10 +1664,25 @@ const Player = (() => {
     moveInOverlay(dir);
   }
 
-  function onBackKey() {
+  // Back puts away what is on the screen one layer at a time, and only leaves the video when nothing is left.
+  // The on-screen back arrow is a different thing: it always leaves (fromKey is false there).
+  function dismissControls() {
+    forceHideOverlay();
+    if (upShown) { upNextBtn.focus(); return; } // so OK plays the next episode
+    if (skipShown) { skipBtn.focus(); return; }
+    syncMini();
+    miniEl.classList.remove('hide');
+  }
+
+  function onBackKey(fromKey) {
     if (numBuf) { cancelNumber(); return; }
     if (drawerOpen()) { closeDrawer(); return; }
     if (scrub) { cancelScrub(); return; }
+    if (fromKey) {
+      // an error screen keeps its controls up on purpose: Back must be able to leave it
+      if (overlayVisible() && !failed) { dismissControls(); return; }
+      if (!bannerEl.classList.contains('hidden')) { hideBanner(); return; }
+    }
     if (isCatchup()) { backToLive(); return; }
     back();
   }
@@ -1690,15 +1705,23 @@ const Player = (() => {
 
     if (sleepWarnShown) { e.preventDefault(); cancelSleep(); toast('Sleep timer cancelled'); return; }
     if (stillOpen) { stillKey(e, k, dir); return; }
+    if (pauseCardShown && k === KEYS.BACK) { // Back only puts the card away
+      e.preventDefault();
+      hidePauseCard();
+      syncMini();
+      miniEl.classList.remove('hide');
+      return;
+    }
     if (pauseCardShown) {
       hidePauseCard();
       // the first key only brings the controls back, except for the transport keys
       if (k !== KEYS.PLAY && k !== KEYS.PAUSE && k !== KEYS.STOP && k !== KEYS.BACK) { e.preventDefault(); showOverlay(B.play); return; }
     }
 
-    if (k === KEYS.BACK) { e.preventDefault(); onBackKey(); return; }
+    if (k === KEYS.BACK) { e.preventDefault(); onBackKey(true); return; }
     if (k === KEYS.STOP) { e.preventDefault(); back(); return; }
     if (k === KEYS.PLAY) { e.preventDefault(); resumePlay(); showOverlay(); return; }
+    if (k === KEYS.PLAY_PAUSE) { e.preventDefault(); togglePlay(); showOverlay(); return; } // one key that does both (some remotes only have this)
     if (k === KEYS.PAUSE) { e.preventDefault(); wantPlay = false; video.pause(); return; }
     if (k === KEYS.FF || k === KEYS.RW) {
       e.preventDefault();
@@ -1742,7 +1765,7 @@ const Player = (() => {
   }
 
   // ---------- wiring ----------
-  B.back.addEventListener('click', onBackKey);
+  B.back.addEventListener('click', () => onBackKey(false));
   B.play.addEventListener('click', togglePlay);
   B.rw.addEventListener('click', () => skipBy(-10));
   B.ff.addEventListener('click', () => skipBy(10));
