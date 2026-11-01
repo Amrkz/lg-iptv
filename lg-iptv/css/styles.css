@@ -63,6 +63,7 @@ input { -webkit-user-select: text; user-select: text; }
 .btn:focus { outline: none; box-shadow: var(--ring); transform: scale(1.025); }
 .err { color: var(--danger); margin-top: 18px; min-height: 36px; font-size: 24px; font-weight: 700; }
 .login-help { position: absolute; left: var(--gutter); bottom: 48px; font-size: 22px; color: var(--text-3); }
+.no-content-notice { position: absolute; right: var(--gutter); bottom: 48px; max-width: 960px; text-align: right; font-size: 22px; line-height: 1.35; color: var(--text-3); }
 
 /* ---------- Home ---------- */
 .topbar { position: absolute; top: 0; left: 0; right: 0; height: 116px; display: flex; align-items: center; padding: 0 var(--gutter); z-index: 10;
