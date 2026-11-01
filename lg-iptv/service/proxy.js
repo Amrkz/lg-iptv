@@ -159,6 +159,27 @@ function cors(res) {
   res.setHeader('Access-Control-Allow-Headers', '*');
 }
 
+// Posters and logos: downloaded once, kept on the TV's disk, served from there afterwards.
+var images = null;
+function pictures() {
+  if (!images) {
+    images = require('./imgcache').create({
+      dirs: [process.env.LGIPTV_IMG_DIR, '/media/developer/temp/lgiptv-img', '/var/tmp/lgiptv-img', '/tmp/lgiptv-img'],
+      fetch: function (url, cb) { fetchBest(url, null, cb); }
+    });
+  }
+  return images;
+}
+
+// A movie file has no .m3u8 or .ts in its name. The TV player decides how to open it from the
+// Content-Type, and some providers send none or a generic one.
+var VIDEO_TYPES = { mp4: 'video/mp4', m4v: 'video/mp4', mkv: 'video/x-matroska', avi: 'video/x-msvideo', mov: 'video/quicktime', webm: 'video/webm', ts: 'video/mp2t' };
+function videoTypeOf(target) {
+  var p = String(target || '').split(/[?#]/)[0];
+  var m = /\.([a-z0-9]{2,4})$/i.exec(p);
+  return m ? (VIDEO_TYPES[m[1].toLowerCase()] || '') : '';
+}
+
 function onRequest(req, res) {
   cors(res);
   if (!ownRequest(req)) { res.writeHead(403); res.end(); return; }
@@ -166,8 +187,10 @@ function onRequest(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); res.end(); return; }
   var q = String(req.url || '');
   var pathOnly = q.split('?')[0];
-  var target = queryValue(q.indexOf('?') >= 0 ? q.slice(q.indexOf('?')) : '', 'u');
+  var search = q.indexOf('?') >= 0 ? q.slice(q.indexOf('?')) : '';
+  var target = queryValue(search, 'u');
   if (!target || !allowed(target)) { res.writeHead(400); res.end('bad url'); return; }
+  if (pathOnly === '/img') { pictures().serve(req, res, target, queryValue(search, 'w')); return; }
   fetchBest(target, req.headers.range, function (err, up, finalUrl) {
     if (err || !up) {
       if (!res.headersSent) { res.writeHead(502, { 'Content-Type': 'text/plain' }); res.end(err ? String(err.message || err) : 'upstream'); }
@@ -201,7 +224,7 @@ function onRequest(req, res) {
     }
     var type = up.headers['content-type'] || '';
     if (/\.ts$/i.test(pathOnly)) type = 'video/mp2t';
-    else if (!type) type = 'application/octet-stream';
+    else if (!type || /^(application\/octet-stream|binary\/octet-stream|text\/plain)/i.test(type)) type = videoTypeOf(finalUrl || target) || type || 'application/octet-stream';
     var headers = {
       'Content-Type': type,
       'Cache-Control': 'no-store'
@@ -210,7 +233,8 @@ function onRequest(req, res) {
     if (up.headers['content-range']) headers['Content-Range'] = up.headers['content-range'];
     if (up.headers['accept-ranges']) headers['Accept-Ranges'] = up.headers['accept-ranges'];
     res.writeHead(code, headers);
-    if (req.method === 'HEAD') { up.resume(); res.end(); return; }
+    // resume() would read the whole movie to throw it away, and hold the provider connection while it does.
+    if (req.method === 'HEAD') { if (up.destroy) up.destroy(); res.end(); return; }
     up.pipe(res);
     var stop = function () { if (up.destroy) up.destroy(); };
     req.on('close', stop);

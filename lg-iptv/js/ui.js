@@ -48,6 +48,7 @@ const UI = (() => {
     (categories || []).forEach(cat => {
       const rk = cat.kind || kind; // a row may carry its own kind (search results)
       const all = itemsByCat[cat.category_id] || [];
+      const total = all.total || all.length; // a long list may be cut short before it gets here
       const items = all.slice(0, cat.limit || 40);
       if (!items.length) return;
       count++;
@@ -59,10 +60,10 @@ const UI = (() => {
       nm.textContent = cat.category_name || 'Category';
       h3.appendChild(nm);
       let countEl = null;
-      if (all.length > 1 && !cat.grid) {
+      if (total > 1 && !cat.grid) {
         countEl = document.createElement('span');
         countEl.className = 'count';
-        countEl.textContent = all.length;
+        countEl.textContent = total;
         h3.appendChild(countEl);
       }
       const itemsEl = document.createElement('div');
@@ -77,7 +78,14 @@ const UI = (() => {
           // The picture loads only when the card is near the screen (see lazyImages):
           // hundreds of eager downloads used to stall the rows on the TV.
           const img = document.createElement('img');
-          img.onerror = () => { if (img.parentNode) img.parentNode.removeChild(img); markNoArt(card, name); };
+          img.onerror = () => {
+            // the copy kept on the TV failed: try the picture's own address once before giving up
+            if (img._fb) { const fb = img._fb; img._fb = null; img.src = fb; return; }
+            releaseSlot(img);
+            if (img.parentNode) img.parentNode.removeChild(img);
+            markNoArt(card, name);
+          };
+          img.onload = () => releaseSlot(img);
           img.setAttribute('data-src', src);
           card.appendChild(img);
         } else {
@@ -113,10 +121,10 @@ const UI = (() => {
 
         const pos = idx + 1;
         card.addEventListener('focus', () => {
-          if (countEl) countEl.textContent = pos + ' / ' + all.length; // where am I in this row
+          if (countEl) countEl.textContent = pos + ' / ' + total; // where am I in this row
           if (handlers.focus) handlers.focus(it, rk);
         });
-        card.addEventListener('blur', () => { if (countEl) countEl.textContent = all.length; });
+        card.addEventListener('blur', () => { if (countEl) countEl.textContent = total; });
         // Magic Remote pointer: hovering a card focuses it, so the hero and spotlight follow
         card.addEventListener('mouseenter', () => {
           if (window.pointerAiming && !window.pointerAiming()) return; // remote movement scrolls tiles under a resting cursor
@@ -141,9 +149,43 @@ const UI = (() => {
     lazyImages(container);
   }
 
-  // Pictures start loading only when their card is within a screen and a half
-  // of the viewport. Runs after every render and on scroll (see app.js).
+  // Pictures start loading only when their card is near the screen, and only a few at a time:
+  // dozens of big pictures decoded at once starve the scrolling on the TV.
+  // Runs after every render and on scroll (see app.js).
+  const MAX_LOADS = 6;
+  const SLOT_MS = 15000;     // a picture that neither loads nor fails in this time gives its place back
+  let loading = 0;
+  const waiting = [];        // pictures that are near the screen and wait for a free place
   let lazyQueued = false;
+
+  function releaseSlot(img) {
+    if (!img._slot) return;
+    img._slot = false;
+    clearTimeout(img._slotTimer);
+    loading--;
+    pumpImages();
+  }
+
+  function startImage(img) {
+    const raw = img.getAttribute('data-src');
+    if (!raw) return;
+    img.removeAttribute('data-src');
+    const u = window.API && API.imgUrl ? API.imgUrl(raw, 342) : raw;
+    img._fb = u !== raw ? raw : null;
+    img._slot = true;
+    loading++;
+    img._slotTimer = setTimeout(() => releaseSlot(img), SLOT_MS);
+    img.src = u;
+  }
+
+  function pumpImages() {
+    while (loading < MAX_LOADS && waiting.length) {
+      const img = waiting.shift();
+      img._queued = false;
+      if (document.documentElement.contains(img)) startImage(img); // a screen that was replaced is skipped
+    }
+  }
+
   function lazyImages(container) {
     if (lazyQueued || !container) return;
     lazyQueued = true;
@@ -151,16 +193,18 @@ const UI = (() => {
       lazyQueued = false;
       const vh = window.innerHeight || 1080;
       const vw = window.innerWidth || 1920;
-      const buf = vh * 1.5;
+      const bufY = vh * 0.8, bufX = vw * 0.6;
       const imgs = container.querySelectorAll('img[data-src]');
       for (let i = 0; i < imgs.length; i++) {
         const img = imgs[i];
+        if (img._queued) continue;
         const r = img.getBoundingClientRect();
-        if (r.bottom > -buf && r.top < vh + buf && r.right > -buf && r.left < vw + buf) {
-          img.src = img.getAttribute('data-src');
-          img.removeAttribute('data-src');
+        if (r.bottom > -bufY && r.top < vh + bufY && r.right > -bufX && r.left < vw + bufX) {
+          img._queued = true;
+          waiting.push(img);
         }
       }
+      pumpImages();
     };
     if (window.requestAnimationFrame) window.requestAnimationFrame(run);
     else setTimeout(run, 0);
@@ -230,26 +274,36 @@ const UI = (() => {
 
   // opts (slideshow only): { count, index, ms } draws one progress segment per slide
   function setHero(el, item, kind, opts) {
-    // crossfade: the old slide fades out underneath the new one, then is removed
+    // The slideshow crossfades: the old slide fades out underneath the new one, then is removed.
+    // A slide that follows the focus swaps at once. Two blurred layers fading together
+    // cost a frame each on the TV, and that happens on every card the cursor rests on.
+    const fade = !!(opts && opts.ms);
     Array.from(el.querySelectorAll('.hero-slide')).forEach(old => {
       if (old.classList.contains('leaving')) return;
+      if (!fade) { if (old.parentNode) old.parentNode.removeChild(old); return; }
       old.classList.add('leaving');
       setTimeout(() => { if (old.parentNode) old.parentNode.removeChild(old); }, 700);
     });
     if (!item) return;
     const slide = document.createElement('div');
-    slide.className = 'hero-slide';
+    slide.className = 'hero-slide' + (fade ? '' : ' instant');
     const src = safeUrl(item.icon || item.stream_icon || item.cover);
     if (src) {
+      // the background is blurred, so a small copy is enough
+      const bgSrc = window.API && API.imgUrl ? API.imgUrl(src, 185) : src;
       const bg = document.createElement('div');
       bg.className = 'hero-bg';
-      bg.style.backgroundImage = 'url(' + JSON.stringify(src) + ')';
+      bg.style.backgroundImage = 'url(' + JSON.stringify(bgSrc) + ')';
       if (opts && opts.ms) bg.style.animationDuration = '0.8s, ' + (opts.ms + 1500) + 'ms';
       slide.appendChild(bg);
       const art = document.createElement('img');
       art.className = 'hero-art';
-      art.onerror = () => { if (art.parentNode) art.parentNode.removeChild(art); };
-      art.src = src;
+      const artSrc = window.API && API.imgUrl ? API.imgUrl(src, 342) : src;
+      art.onerror = () => {
+        if (art.src !== src && artSrc !== src && !art._retried) { art._retried = true; art.src = src; return; }
+        if (art.parentNode) art.parentNode.removeChild(art);
+      };
+      art.src = artSrc;
       slide.appendChild(art);
     }
     const box = document.createElement('div');

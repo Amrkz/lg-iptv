@@ -807,7 +807,8 @@ const Player = (() => {
     // drop the old stream first: providers count open connections, and a lingering one blocks the next
     releaseVideo();
     spinner.classList.remove('hidden');
-    stallTimer = setTimeout(() => { if (!started) fail(); }, isCatchup() ? 15000 : 8000);
+    // a live channel starts in seconds; a movie file can take a provider much longer to open
+    stallTimer = setTimeout(() => { if (!started) fail(); }, isCatchup() ? 15000 : isLive() ? 8000 : 20000);
     const isHls = /\.m3u8(\?|$)/i.test(url);
     const jsOk = !!(window.Hls && window.MediaSource);
     // hls.js reports "playing" on this TV while the picture stays black.

@@ -87,6 +87,8 @@ nav .navbtn + .navbtn { margin-left: 8px; }
 /* each hero item is a slide with its own stacking context, so crossfades never leak above the gradient */
 .hero-slide { position: absolute; z-index: 0; top: 0; left: 0; right: 0; bottom: 0; animation: fade 0.7s ease-out both; }
 .hero-slide.leaving { animation: fadeout 0.6s ease-out both; }
+/* a slide that follows the focus appears at once: no fade of a blurred layer, no rise */
+.hero-slide.instant, .hero-slide.instant .hero-bg, .hero-slide.instant .hero-art, .hero-slide.instant .hero-content > * { animation: none; }
 @keyframes fadeout { from { opacity: 1; } to { opacity: 0; } }
 .hero-bg { position: absolute; top: -50px; left: -50px; right: -50px; bottom: -50px; background-size: cover; background-position: center; filter: blur(28px) brightness(0.5) saturate(1.25);
   animation: fade 0.5s ease-out both; } /* no slow zoom: re-blurring a 2000 px layer on every frame starves the focus animation */

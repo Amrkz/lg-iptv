@@ -1,5 +1,6 @@
 const App = (() => {
   const MAX_CATS = 8;
+  const GROUP_HEAD = 300; // how much of a category is grouped by quality before it is shown
   let currentKind = 'movies';
   let view = 'browse'; // 'browse' | 'category' | 'episodes'
   let loadId = 0;      // bumps on every navigation so stale responses are ignored
@@ -326,13 +327,22 @@ const App = (() => {
       const allCats = cats && cats.length ? cats : [{ category_id: 'all', category_name: 'All' }];
       const categories = allCats.slice(0, MAX_CATS);
       const itemsByCat = {};
+      const failures = [];
       return Promise.all(categories.map(c =>
         API.getStreams(kind, c.category_id).then(items => {
           items = Array.isArray(items) ? items : [];
-          itemsByCat[c.category_id] = (kind === 'movies' || kind === 'series') ? groupQualities(items) : items;
-        })
+          if (kind === 'movies' || kind === 'series') {
+            // a shelf shows 40 cards, so only the head of a big list is grouped; the count keeps the real size
+            const grouped = groupQualities(items.slice(0, GROUP_HEAD));
+            grouped.total = items.length;
+            itemsByCat[c.category_id] = grouped;
+          } else {
+            itemsByCat[c.category_id] = items;
+          }
+        }).catch(e => { failures.push(e); itemsByCat[c.category_id] = []; }) // one slow shelf must not blank the screen
       )).then(() => {
         if (id !== loadId) return;
+        if (failures.length === categories.length) throw failures[0];
         let shown = categories;
         if (allCats.length > 1) {
           // first row lists EVERY category, so panels with hundreds of them stay reachable
@@ -370,10 +380,11 @@ const App = (() => {
     API.getStreams(kind, cat.category_id).then(items => {
       if (id !== loadId) return;
       items = Array.isArray(items) ? items : [];
-      if (kind === 'movies' || kind === 'series') items = groupQualities(items);
+      const total = items.length;
+      if (kind === 'movies' || kind === 'series') items = groupQualities(items.slice(0, GROUP_HEAD * 4)); // 300 cards are shown
       const map = {};
       map[cat.category_id] = items;
-      render([{ category_id: cat.category_id, category_name: cat.category_name + ' (' + items.length + ')', limit: 300, grid: true }], map, kind);
+      render([{ category_id: cat.category_id, category_name: cat.category_name + ' (' + total + ')', limit: 300, grid: true }], map, kind);
       const firstCard = UI.$('.card');
       if (firstCard) firstCard.focus();
     }).catch(e => {

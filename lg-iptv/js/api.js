@@ -32,7 +32,13 @@ const API = (() => {
   }
 
   function getConfig() { if (!cfg) cfg = load('cfg'); return cfg; }
-  function clearConfig() { cfg = null; m3uItems = null; try { localStorage.removeItem('iptv_cfg'); } catch (e) {} }
+  // lists belong to one login: a new login must not see the last one's lists
+  function clearConfig() {
+    cfg = null; m3uItems = null;
+    clearLists();
+    Object.keys(allCache).forEach(k => { delete allCache[k]; });
+    try { localStorage.removeItem('iptv_cfg'); } catch (e) {}
+  }
 
   // Accepts "host:port", "http://host:port/", "http://host:port/c/", or a full
   // get.php / player_api.php link (username and password are lifted from its query).
@@ -70,6 +76,7 @@ const API = (() => {
       if (ui.status && String(ui.status).toLowerCase() !== 'active') throw new Error('Account ' + ui.status);
       if (ui.exp_date && Number(ui.exp_date) > 0 && Number(ui.exp_date) * 1000 < Date.now()) throw new Error('Account expired');
       const formats = Array.isArray(ui.allowed_output_formats) ? ui.allowed_output_formats : [];
+      clearLists();
       cfg = { type: 'xtream', server, user, pass, formats };
       store('cfg', cfg);
       rememberLogin({ server, user });
@@ -140,6 +147,22 @@ const API = (() => {
 
   function m3uOf(kind) { return (m3uItems || []).filter(i => i.type === kind); }
 
+  // Lists stay in memory for a while, and two screens asking for the same list share one request.
+  // A failed request is not kept, so the next visit asks again.
+  const LIST_TTL = 10 * 60 * 1000;
+  const listCache = {};
+  function cachedList(key, make) {
+    const hit = listCache[key];
+    if (hit && Date.now() - hit.t < LIST_TTL) return hit.p;
+    const p = make().then(v => {
+      if (!Array.isArray(v)) throw new Error('The provider did not send a list');
+      return v;
+    }).catch(e => { delete listCache[key]; throw e; });
+    listCache[key] = { t: Date.now(), p };
+    return p;
+  }
+  function clearLists() { Object.keys(listCache).forEach(k => { delete listCache[k]; }); }
+
   function getCategories(kind) {
     const c = getConfig();
     if (c.type === 'm3u') {
@@ -150,9 +173,11 @@ const API = (() => {
       return Promise.resolve(cats);
     }
     const action = kind === 'live' ? 'get_live_categories' : kind === 'movies' ? 'get_vod_categories' : 'get_series_categories';
-    return xtreamGet(action).catch(() => []);
+    // a provider with no categories answers with an empty list or nothing; that is not an error
+    return cachedList('c:' + kind, () => xtreamGet(action).then(v => (Array.isArray(v) ? v : [])));
   }
 
+  // Errors are passed on, so the screen can say what went wrong. An empty shelf looks like "no movies".
   function getStreams(kind, catId) {
     const c = getConfig();
     const all = !catId || catId === 'all';
@@ -160,7 +185,7 @@ const API = (() => {
       return Promise.resolve(m3uOf(kind).filter(i => all || i.group === catId));
     }
     const action = kind === 'live' ? 'get_live_streams' : kind === 'movies' ? 'get_vod_streams' : 'get_series';
-    return xtreamGet(action, all ? '' : `&category_id=${encodeURIComponent(catId)}`).catch(() => []);
+    return cachedList('s:' + kind + ':' + (all ? 'all' : catId), () => xtreamGet(action, all ? '' : `&category_id=${encodeURIComponent(catId)}`));
   }
 
   // webOS plays an HLS playlist. A raw endless .ts file is what the Android
@@ -493,8 +518,16 @@ const API = (() => {
       });
     });
   }
+  // Pictures go through the helper on the TV, which keeps a copy on disk and shrinks TMDB posters.
+  // Until the helper has answered once (or if it never does), the picture loads from its own address.
+  // w = the width wanted; the helper only changes pictures from TMDB.
+  function imgUrl(src, w) {
+    if (!src || !proxyPort || !/^https?:\/\//i.test(src)) return src;
+    if (/^http:\/\/(127\.0\.0\.1|localhost)[:\/]/i.test(src)) return src;
+    return 'http://127.0.0.1:' + proxyPort + '/img?w=' + (w || 342) + '&u=' + encodeURIComponent(src);
+  }
   ensureProxy();
 
-  return { norm, getAll, search, getShortEpg, getArchiveGuide, catchupUrls, hasArchive, pref, getIntro, setIntro, getVodInfoCached, getRecent, addRecent, progressMap, getProgress, saveProgress, removeProgress, listProgress, parseServer, getLast, liveAltUrl, xtreamLogin, m3uLogin, ensureLoaded, getConfig, clearConfig, getCategories, getStreams, streamUrl, getSeriesInfo, getVodInfo, getFavs, toggleFav, isFav, proxyUrl, get proxyError() { return proxyError; } };
+  return { imgUrl, clearLists, norm, getAll, search, getShortEpg, getArchiveGuide, catchupUrls, hasArchive, pref, getIntro, setIntro, getVodInfoCached, getRecent, addRecent, progressMap, getProgress, saveProgress, removeProgress, listProgress, parseServer, getLast, liveAltUrl, xtreamLogin, m3uLogin, ensureLoaded, getConfig, clearConfig, getCategories, getStreams, streamUrl, getSeriesInfo, getVodInfo, getFavs, toggleFav, isFav, proxyUrl, get proxyError() { return proxyError; } };
 })();
 window.API = API;
