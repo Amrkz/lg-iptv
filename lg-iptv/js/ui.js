@@ -67,16 +67,18 @@ const UI = (() => {
       }
       const itemsEl = document.createElement('div');
       itemsEl.className = 'row-items' + (cat.grid ? ' grid' : '');
-      items.forEach(it => {
+      items.forEach((it, idx) => {
         const card = document.createElement('div');
         card.className = 'card' + (it.cat ? ' chip' : '') + (!it.cat && (rk === 'movies' || rk === 'series') ? ' poster' : '');
         card.tabIndex = 0;
         const name = it.name || it.title || '';
         const src = safeUrl(it.icon || it.stream_icon || it.cover);
         if (src) {
+          // The picture loads only when the card is near the screen (see lazyImages):
+          // hundreds of eager downloads used to stall the rows on the TV.
           const img = document.createElement('img');
           img.onerror = () => { if (img.parentNode) img.parentNode.removeChild(img); markNoArt(card, name); };
-          img.src = src;
+          img.setAttribute('data-src', src);
           card.appendChild(img);
         } else {
           markNoArt(card, name);
@@ -109,7 +111,7 @@ const UI = (() => {
           card.appendChild(bar);
         }
 
-        const pos = items.indexOf(it) + 1;
+        const pos = idx + 1;
         card.addEventListener('focus', () => {
           if (countEl) countEl.textContent = pos + ' / ' + all.length; // where am I in this row
           if (handlers.focus) handlers.focus(it, rk);
@@ -136,6 +138,32 @@ const UI = (() => {
       container.appendChild(row);
     });
     if (!count) setMessage(container, 'Nothing here yet.');
+    lazyImages(container);
+  }
+
+  // Pictures start loading only when their card is within a screen and a half
+  // of the viewport. Runs after every render and on scroll (see app.js).
+  let lazyQueued = false;
+  function lazyImages(container) {
+    if (lazyQueued || !container) return;
+    lazyQueued = true;
+    const run = () => {
+      lazyQueued = false;
+      const vh = window.innerHeight || 1080;
+      const vw = window.innerWidth || 1920;
+      const buf = vh * 1.5;
+      const imgs = container.querySelectorAll('img[data-src]');
+      for (let i = 0; i < imgs.length; i++) {
+        const img = imgs[i];
+        const r = img.getBoundingClientRect();
+        if (r.bottom > -buf && r.top < vh + buf && r.right > -buf && r.left < vw + buf) {
+          img.src = img.getAttribute('data-src');
+          img.removeAttribute('data-src');
+        }
+      }
+    };
+    if (window.requestAnimationFrame) window.requestAnimationFrame(run);
+    else setTimeout(run, 0);
   }
 
   function clearHero(el) {
@@ -267,6 +295,6 @@ const UI = (() => {
     el.appendChild(slide);
   }
 
-  return { showScreen, renderRows, setHero, enrichHero, showSearch, clearHero, setMessage, safeUrl, $, $$ };
+  return { showScreen, renderRows, lazyImages, setHero, enrichHero, showSearch, clearHero, setMessage, safeUrl, $, $$ };
 })();
 window.UI = UI;

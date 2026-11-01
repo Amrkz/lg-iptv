@@ -5,6 +5,7 @@ const App = (() => {
   let loadId = 0;      // bumps on every navigation so stale responses are ignored
   let currentEpisodes = []; // flat episode list of the series being browsed
   let progMap = {};         // watch progress, refreshed on each render
+  let favKeys = {};         // favorite keys, refreshed on each render (one localStorage read, not one per card)
 
   const rows = () => UI.$('#rows');
   const hero = () => UI.$('#hero');
@@ -23,6 +24,8 @@ const App = (() => {
 
   function render(cats, map, kind) {
     progMap = API.progressMap();
+    favKeys = {};
+    API.getFavs().forEach(f => { favKeys[f.key] = true; });
     UI.renderRows(rows(), cats, map, kind, handlers);
   }
 
@@ -292,12 +295,13 @@ const App = (() => {
       const f = favOf(item, kind);
       if (!f) return null;
       const on = API.toggleFav(f);
+      favKeys[f.key] = !!on;
       if (kind === 'fav') showFavs(true);
       return on;
     },
     isFav: (item, kind) => {
       const f = favOf(item, kind);
-      return !!f && API.isFav(f.key);
+      return !!f && !!favKeys[f.key];
     },
     progress: (item, kind) => {
       if (kind === 'live' || kind === 'category') return 0;
@@ -667,8 +671,7 @@ const App = (() => {
         if (list.length) { cats.push({ category_id: 's_' + pair[0], category_name: pair[1], kind: pair[0], limit: 40 }); map['s_' + pair[0]] = list; }
       });
       if (!cats.length) { UI.setMessage(rows(), 'No results for "' + q + '".'); return; }
-      progMap = API.progressMap();
-      UI.renderRows(rows(), cats, map, 'search', handlers);
+      render(cats, map, 'search'); // render() also refreshes the favorite keys that isFav reads
       if (focusFirst) { const l = railRows(); if (l.length) focusAt(l[0], 0, 0); }
     }).catch(e => {
       if (seq === searchSeq) UI.setMessage(rows(), 'Search failed: ' + (e && e.message ? e.message : e));
@@ -731,6 +734,13 @@ const App = (() => {
   ['wheel', 'mousedown', 'touchstart'].forEach(evt => rows().addEventListener(evt, () => {
     rows().querySelectorAll('.row.past').forEach(r => r.classList.remove('past'));
   }, { passive: true }));
+  // card pictures load lazily: start the ones scrolled near the screen.
+  // capture:true also catches the sideways scroll inside each row.
+  let lazyT = null;
+  rows().addEventListener('scroll', () => {
+    if (lazyT) return;
+    lazyT = setTimeout(() => { lazyT = null; UI.lazyImages(rows()); }, 120);
+  }, { passive: true, capture: true });
   UI.$$('.topbar .navbtn').forEach(b => b.addEventListener('mouseenter', () => {
     if (window.pointerAiming && !window.pointerAiming()) return; // a remote press must not be stolen by the cursor
     if (document.activeElement !== b) b.focus();
