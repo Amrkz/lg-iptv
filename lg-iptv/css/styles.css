@@ -311,3 +311,79 @@ nav .navbtn + .navbtn { margin-left: 8px; }
 .picker .d-item { font-size: 28px; }
 .picker .q-tag { flex: 0 0 150px; font: 900 40px/1 var(--display); letter-spacing: 0.03em; text-transform: uppercase; color: var(--hot); }
 .picker .d-item:focus .q-tag { color: #000; }
+
+/* ---------- Phase 6: player chrome ----------
+   Same marquee identity, refined. Everything here is instant (no transition,
+   no transform, no opacity animation): the webOS video plane drops the picture
+   if anything over it moves or fades. Focus is shown with colour and rings. */
+
+/* button labels: only the focused button names itself (visibility, not opacity,
+   so nothing ever fades over the picture). This also ends the label collisions. */
+#player .plabel { visibility: hidden; }
+#player .pbtn:focus .plabel { visibility: visible; }
+#player .plabel { font-size: 21px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-2); text-shadow: 1px 2px 6px #000; }
+#player .pbtn:focus .plabel { color: #fff; }
+
+/* buttons: glassier idle, white + red ring on focus */
+#player .pbtn { width: 104px; height: 104px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.17), rgba(255, 255, 255, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.16); }
+#player .pbtn svg { width: 58px; height: 58px; }
+#player .pbtn:focus { background: #fff; border-color: #fff;
+  box-shadow: 0 0 0 5px var(--accent), 0 18px 44px rgba(0, 0, 0, 0.55); }
+#player .pbtn:focus svg { fill: #000; }
+#player .favbtn.on svg { fill: var(--gold); }
+#player .favbtn.on:focus svg { fill: #8a6d00; }
+
+/* the bottom bar becomes a floating dock */
+#player .ov-bottom { left: 56px; right: 56px; bottom: 44px; padding: 30px 48px 62px;
+  background: rgba(10, 10, 14, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 26px;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.07); }
+#player .btn-row { margin-top: 26px; }
+#player .grp .pbtn { margin-right: 18px; }
+#player .grp .pbtn:last-child { margin-right: 0; }
+
+/* seek bar: red thread with a glow, white thumb, a ring you can actually see on focus */
+#player .seekbar { height: 10px; background: rgba(255, 255, 255, 0.22); }
+#player .sb-played { background: var(--accent); box-shadow: 0 0 14px rgba(229, 9, 20, 0.8); }
+#player .sb-buf { background: rgba(255, 255, 255, 0.34); }
+#player .sb-thumb { width: 30px; height: 30px; margin: -15px 0 0 -15px; background: #fff; border: 4px solid var(--accent); }
+#player .seekbar:focus { box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.95), 0 0 0 9px var(--accent); }
+#player .sb-bubble { border-radius: 10px; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5); }
+#player .tlabel { color: #fff; }
+
+/* top bar: a touch smaller, tighter */
+#player .ov-title { font-size: 64px; }
+#player .ov-sub { color: var(--text-2); }
+
+/* toast: a pill that fits its text, centred */
+#player .toast { left: 0; right: 0; width: auto; background: none; text-align: center; }
+#player .toast span { display: inline-block; padding: 16px 38px;
+  background: rgba(12, 12, 14, 0.9); border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 44px; box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55); }
+
+/* channel banner: red spine */
+#player .banner { border: 1px solid rgba(255, 255, 255, 0.12); border-left: 8px solid var(--accent); border-radius: 16px; }
+/* typed channel number */
+#player .chnum { border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 18px; }
+
+/* cards share one surface */
+#player .upnext, #player .card-box, #player .pausecard, #player .skipintro {
+  border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 18px;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.07); }
+#player .up-thumb { border-radius: 10px; }
+#player .upbtn { border: 2px solid rgba(255, 255, 255, 0.35); }
+#player .upbtn:focus { background: #fff; color: #000; border-color: #fff; box-shadow: 0 0 0 4px var(--accent); }
+#player .upbtn:focus span { color: #000; }
+#player .up-fill { background: rgba(229, 9, 20, 0.35); }
+#player .skipintro { border-width: 2px; }
+
+/* drawer: roomier rows, ring on focus */
+#player .d-item { border-radius: 12px; padding: 14px 18px; background: rgba(255, 255, 255, 0.06); border: 1px solid transparent; }
+#player .d-item:focus { background: #fff; color: #000; box-shadow: 0 0 0 4px var(--accent); }
+#player .d-chip:focus { box-shadow: 0 0 0 4px var(--accent); }
+
+/* mini bar: a slimmer thread */
+#player .mini-bar { height: 10px; background: rgba(255, 255, 255, 0.25); }
+#player .mini-bar i { box-shadow: 0 0 10px rgba(229, 9, 20, 0.7); }

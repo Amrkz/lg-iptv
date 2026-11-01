@@ -166,7 +166,10 @@ const Player = (() => {
   }
 
   function toast(text, ms) {
-    toastEl.textContent = text;
+    toastEl.textContent = '';
+    const s = document.createElement('span'); // the pill sizes itself to the text (see #player .toast span)
+    s.textContent = text;
+    toastEl.appendChild(s);
     toastEl.classList.remove('hidden');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toastEl.classList.add('hidden'), ms || 1400);
@@ -881,6 +884,7 @@ const Player = (() => {
     clearTimeout(numTimer);
     clearTimeout(bannerTimer);
     clearTimeout(pauseCardTimer);
+    playToken++; // a start() whose proxy lookup is still in flight must not open after Back
     wantPlay = false;
     if (!video.paused) ignorePauseUntil = Date.now() + 250;
     video.pause();
@@ -967,6 +971,7 @@ const Player = (() => {
 
   function zap(dir) { // channel up/down for live, next/previous episode for series
     if (!ctx || ctx.items.length < 2) return;
+    cancelNumber(); // a half-typed channel number is abandoned when zapping
     if (ctx.type === 'live') {
       const n = ctx.items.length;
       const base = zapIdx >= 0 ? zapIdx : ctx.index;
@@ -978,6 +983,7 @@ const Player = (() => {
 
   function lastChannel() {
     if (!isLive() || !prevItem) { toast('No previous channel'); return; }
+    cancelNumber();
     let i = -1;
     ctx.items.forEach((it, k) => { if (sameChannel(it, prevItem)) i = k; });
     if (i < 0) { toast('No previous channel'); return; }
