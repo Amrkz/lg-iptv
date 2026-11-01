@@ -315,6 +315,11 @@ nav .navbtn + .navbtn { margin-left: 8px; }
 .picker .q-tag { flex: 0 0 150px; font: 900 40px/1 var(--display); letter-spacing: 0.03em; text-transform: uppercase; color: var(--hot); }
 .picker .d-item:focus .q-tag { color: #000; }
 
+/* exit question: Stay (default) and Exit side by side */
+.exit-actions { display: flex; }
+.exit-actions .d-item { flex: 1; width: auto; justify-content: center; margin-bottom: 0; padding: 22px 16px; font-size: 32px; }
+.exit-actions .d-item + .d-item { margin-left: 18px; }
+
 /* ---------- Phase 6: player chrome ----------
    Same marquee identity, refined. Everything here is instant (no transition,
    no transform, no opacity animation): the webOS video plane drops the picture

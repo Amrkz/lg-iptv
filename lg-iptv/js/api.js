@@ -387,7 +387,7 @@ const API = (() => {
   let proxyWait = null;
   let hostWait = null;
   function isProxied(url) {
-    return /^http:\/\/[^/]+\/(list\.m3u8|seg\.(ts|mp4|m4s|aac|bin))\?u=/.test(url || '');
+    return /^http:\/\/[^/]+\/(list\.m3u8|seg\.[a-z0-9]{2,5})\?u=/.test(url || '');
   }
   function probeProxy(port, host) {
     return new Promise(resolve => {
@@ -509,9 +509,12 @@ const API = (() => {
       const port = both[0];
       if (!port) return url;
       return (lan ? lanHost(both[1], port) : Promise.resolve('127.0.0.1')).then(host => {
+        // The TV player picks its demuxer from the file name in the address, so a movie keeps its own
+        // extension (seg.mkv, seg.avi...). seg.bin is a name it does not know, and the picture never starts.
+        const vid = /\.(mp4|m4v|mkv|avi|mov|webm|mpg|mpeg|wmv|flv|3gp)(?:\?|$)/i.exec(url);
         const path = /\.m3u8(\?|$)/i.test(url) ? 'list.m3u8'
           : /\.ts(\?|$)/i.test(url) || /timeshift\.php/i.test(url) ? 'seg.ts'
-          : /\.mp4(\?|$)/i.test(url) ? 'seg.mp4'
+          : vid ? 'seg.' + vid[1].toLowerCase()
           : /\.m4s(\?|$)/i.test(url) ? 'seg.m4s'
           : 'seg.bin';
         return 'http://' + host + ':' + port + '/' + path + '?u=' + encodeURIComponent(url);

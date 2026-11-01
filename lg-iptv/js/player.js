@@ -59,7 +59,7 @@ const Player = (() => {
   const SCRUB_STEPS = [10, 10, 10, 20, 30, 60, 60, 120, 180, 300]; // grows while a key is held
   const HIDE_AFTER = 8000;
   const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
-  const BUSY_RETRY_MS = 8000, BUSY_RETRY_MAX = 3;
+  const BUSY_RETRY_MS = 8000, BUSY_RETRY_MAX = 3, NOT_READY_MAX = 5;
   const STALL_MS = 15000;          // a started stream that does not move this long is reopened
   const RECONNECT_MAX = 3;
   const ZAP_DELAY = 450;           // channel keys wait this long before opening the stream
@@ -91,7 +91,7 @@ const Player = (() => {
   let engine = '';                                 // 'js' or 'native'; the other is tried once
   let triedJs = false, triedNative = false;
   let wantPlay = true;
-  let failed = false, busyRetries = 0, busyTimer = null;
+  let failed = false, busyRetries = 0, busyTimer = null, slowTimer = null;
   let httpStatus = 0, httpNote = '';               // status captured from the play request, so a failure needs no extra fetch
   let playToken = 0;
 
@@ -595,6 +595,7 @@ const Player = (() => {
   // ---------- playback ----------
   function teardown() {
     clearTimeout(stallTimer);
+    clearTimeout(slowTimer);
     if (hls) { hls.destroy(); hls = null; }
   }
 
@@ -647,14 +648,22 @@ const Player = (() => {
     noteResponse(code, body);
   }
 
+  // true when the address goes through the helper on the TV (loopback or the TV's own address)
+  function viaHelper(url) { return /^http:\/\/[^/]+\/(list\.m3u8|seg\.[a-z0-9]{2,5})\?u=/.test(url || ''); }
+
   function maybeRetry(url, status) {
-    // 409 is a refusal (often the User-Agent). Retrying it just hits the provider again.
+    // 409 from the browser is a refusal of its User-Agent, and retrying it just hits the provider again.
+    // Through the on-TV player the identity is already right, so a 409 there is the provider not being ready
+    // (it answered the same movie normally a minute later), and a movie is worth a few more tries.
     // 429, 458 and 509 are the limit responses, and those can clear on their own.
-    if ((status !== 429 && status !== 458 && status !== 509) || busyRetries >= BUSY_RETRY_MAX) return '';
+    const notReady = status === 409 && !isLive() && viaHelper(startUrl);
+    const max = notReady ? NOT_READY_MAX : BUSY_RETRY_MAX; // that refusal lasted over a minute on the real provider
+    if ((status !== 429 && status !== 458 && status !== 509 && !notReady) || busyRetries >= max) return '';
     busyRetries++;
     clearTimeout(busyTimer);
-    busyTimer = setTimeout(() => { if (info && failed && !hidden()) restart(0); }, BUSY_RETRY_MS);
-    return ' Retrying automatically (' + busyRetries + ' of ' + BUSY_RETRY_MAX + '). Press OK to retry now.';
+    const wait = notReady ? BUSY_RETRY_MS + (busyRetries - 1) * 4000 : BUSY_RETRY_MS; // 8, 12, 16, 20, 24 s
+    busyTimer = setTimeout(() => { if (info && failed && !hidden()) restart(0); }, wait);
+    return ' Retrying automatically (' + busyRetries + ' of ' + max + '). Press OK to retry now.';
   }
 
   function failureText(status, note) {
@@ -666,7 +675,7 @@ const Player = (() => {
     if (status >= 500) return head + '. The provider server has a problem.';
     if (status >= 200 && status < 300) return 'The provider answered, but this TV cannot decode this stream format.';
     if (status === 409) {
-      var via = startUrl.indexOf('127.0.0.1') >= 0;
+      var via = viaHelper(startUrl);
       var why = via ? '. The on-TV player was refused too.' : '. The on-TV player did not start, so this is still the browser.';
       if (!via && window.API && API.proxyError) why += ' (' + API.proxyError + ')';
       return head + why + again;
@@ -807,8 +816,11 @@ const Player = (() => {
     // drop the old stream first: providers count open connections, and a lingering one blocks the next
     releaseVideo();
     spinner.classList.remove('hidden');
-    // a live channel starts in seconds; a movie file can take a provider much longer to open
-    stallTimer = setTimeout(() => { if (!started) fail(); }, isCatchup() ? 15000 : isLive() ? 8000 : 20000);
+    // a live channel starts in seconds; a movie file can take a provider 15 s or more to open the first time
+    stallTimer = setTimeout(() => { if (!started) fail(); }, isCatchup() ? 15000 : isLive() ? 8000 : 50000);
+    if (!isLive() && !isCatchup()) {
+      slowTimer = setTimeout(() => { if (!started && !failed && !hidden()) setMsg('The provider is slow to start this one. Please wait…'); }, 6000);
+    }
     const isHls = /\.m3u8(\?|$)/i.test(url);
     const jsOk = !!(window.Hls && window.MediaSource);
     // hls.js reports "playing" on this TV while the picture stays black.

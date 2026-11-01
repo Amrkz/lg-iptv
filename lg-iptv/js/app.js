@@ -400,7 +400,7 @@ const App = (() => {
     const url = API.streamUrl(item, kind);
     if (!url) return;
     if (kind === 'live') recordRecent(item);
-    const k = kind === 'fav' ? kindFromUrl(url) : (kind === 'episode' ? 'series' : kind);
+    const k = kind === 'fav' || kind === 'recent' ? kindFromUrl(url) : (kind === 'episode' ? 'series' : kind);
     let ctx;
     if (kind === 'live' && list && list.indexOf(item) >= 0) {
       ctx = { type: 'live', kind: 'live', items: list, index: list.indexOf(item), resolve: it => resolveItem(it, 'live'), onPlay: recordRecent };
@@ -444,6 +444,37 @@ const App = (() => {
     render(favCats, favMap, 'fav');
     slides = favMap.fav.slice(0, 6);
     slideKind = 'fav';
+    slideIdx = 0;
+    if (!refocus) startSlideshow(false);
+    if (refocus) {
+      const el = UI.$('.card') || UI.$('.navbtn.active');
+      if (el) el.focus();
+    }
+  }
+
+  // ---------- recent: pick up where the viewer left off ----------
+  // Continue Watching: movies and episodes that were started and not finished, newest first.
+  // Recent Channels: the live channels watched last.
+  function showRecent(refocus) {
+    loadId++;
+    currentKind = 'recent';
+    view = 'browse';
+    setActiveNav('recent');
+    stopSlideshow();
+    UI.clearHero(hero());
+    const cats = [], map = {};
+    const cont = API.listProgress().slice(0, 20).map(e => ({ name: e.name, icon: e.icon, url: e.url, _cont: e }));
+    if (cont.length) { cats.push({ category_id: '__cont', category_name: 'Continue Watching', kind: 'recent', limit: 20 }); map.__cont = cont; }
+    const rec = API.getRecent();
+    if (rec.length) { cats.push({ category_id: '__recent', category_name: 'Recent Channels', kind: 'live', limit: 20 }); map.__recent = rec; }
+    if (!cats.length) {
+      slides = [];
+      UI.setMessage(rows(), 'Nothing to resume yet. Movies and episodes you start, and channels you watch, will show up here.');
+      return;
+    }
+    render(cats, map, 'recent');
+    slides = cont.concat(rec).slice(0, 6);
+    slideKind = 'recent';
     slideIdx = 0;
     if (!refocus) startSlideshow(false);
     if (refocus) {
@@ -637,6 +668,7 @@ const App = (() => {
 
   // after the player closes, put the focused row back in its slot
   function onPlayerClosed() {
+    if (currentKind === 'recent' && view === 'browse') { showRecent(true); return; } // what was just watched moves to the front
     const a = document.activeElement;
     if (a && a.classList && a.classList.contains('card') && rowOf(a) && railRows().indexOf(rowOf(a)) >= 0) place(a);
   }
@@ -692,7 +724,7 @@ const App = (() => {
   // ---------- landing page ----------
   // The app opens on the section that was open last. If that section has nothing in it,
   // it opens on the first tab of the menu instead.
-  const SECTIONS = ['live', 'movies', 'series', 'fav'];
+  const SECTIONS = ['live', 'movies', 'series', 'recent', 'fav'];
   const DEFAULT_SECTION = 'movies'; // first run, nothing remembered yet
 
   const firstSection = () => {
@@ -704,6 +736,7 @@ const App = (() => {
   function openSection(kind, remember) {
     if (remember) API.pref('section', kind);
     if (kind === 'fav') { showFavs(false); return Promise.resolve(); }
+    if (kind === 'recent') { showRecent(false); return Promise.resolve(); }
     return loadCategory(kind);
   }
 

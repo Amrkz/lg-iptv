@@ -5,7 +5,7 @@
   <meta name="referrer" content="no-referrer" />
   <meta name="viewport" content="width=1920, height=1080, initial-scale=1" />
   <title>LG IPTV</title>
-  <link rel="stylesheet" href="css/styles.css?v=20261101164028" />
+  <link rel="stylesheet" href="css/styles.css?v=20261101170645" />
   <script src="lib/hls.min.js"></script>
 </head>
 <body>
@@ -46,6 +46,7 @@
           <button class="navbtn" data-cat="live">Live TV</button>
           <button class="navbtn active" data-cat="movies">Movies</button>
           <button class="navbtn" data-cat="series">Series</button>
+          <button class="navbtn" data-cat="recent">Recent</button>
           <button class="navbtn" data-cat="fav">Favorites</button>
           <button class="navbtn" data-cat="search">Search</button>
         </nav>
@@ -166,10 +167,20 @@
       <div id="drawer" class="drawer hide"><div id="drawer-body"></div></div>
     </div>
   </div>
-  <script src="js/keys.js?v=20261101164028"></script>
-  <script src="js/api.js?v=20261101164028"></script>
-  <script src="js/ui.js?v=20261101164028"></script>
-  <script src="js/player.js?v=20261101164028"></script>
-  <script src="js/app.js?v=20261101164028"></script>
+  <div id="exitbox" class="picker hidden" role="dialog" aria-modal="true">
+    <div class="picker-panel">
+      <div class="picker-title">Exit?</div>
+      <div class="picker-sub">Leave the app and go back to the TV home screen.</div>
+      <div class="exit-actions">
+        <button id="exit-stay" class="d-item">Stay</button>
+        <button id="exit-leave" class="d-item">Exit</button>
+      </div>
+    </div>
+  </div>
+  <script src="js/keys.js?v=20261101170645"></script>
+  <script src="js/api.js?v=20261101170645"></script>
+  <script src="js/ui.js?v=20261101170645"></script>
+  <script src="js/player.js?v=20261101170645"></script>
+  <script src="js/app.js?v=20261101170645"></script>
 </body>
 </html>

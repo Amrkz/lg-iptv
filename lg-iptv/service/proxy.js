@@ -15,6 +15,22 @@ var UAS = [
 var uaIndex = 0;
 var boundPort = 0;
 
+// One line per stream request in /tmp/lg-iptv-proxy.log, with the login masked, so a movie that
+// will not start can be read back from the TV. The file restarts when it grows past 200 KB.
+var LOG_FILE = '/tmp/lg-iptv-proxy.log';
+function mask(u) {
+  return String(u || '')
+    .replace(/\/(movie|series|live|timeshift)\/[^\/]+\/[^\/]+\//g, '/$1/*/*/')
+    .replace(/(username|password)=[^&]*/g, '$1=*');
+}
+function note(line) {
+  try {
+    var fs = require('fs');
+    try { if (fs.statSync(LOG_FILE).size > 200000) fs.writeFileSync(LOG_FILE, ''); } catch (e) { /* no file yet */ }
+    fs.appendFileSync(LOG_FILE, new Date().toISOString().slice(11, 19) + ' ' + line + '\n');
+  } catch (e) { /* the log is a help, never a reason to fail */ }
+}
+
 function absUrl(ref, base) {
   try { return new URL(ref, base).toString(); } catch (e) { return ref; }
 }
@@ -90,7 +106,8 @@ function allowed(target) {
   return parsed;
 }
 
-function fetchOnce(target, ua, range, cb) {
+// wait = how long the provider may take to start answering. A cold movie file can take 15 s or more.
+function fetchOnce(target, ua, range, cb, wait) {
   var hops = 0;
   var settled = false;
   function done(err, res, finalUrl) {
@@ -125,14 +142,14 @@ function fetchOnce(target, ua, range, cb) {
       req.setTimeout(0);
       done(null, res, current);
     });
-    req.setTimeout(20000, function () { req.destroy(); done(new Error('timeout')); });
+    req.setTimeout(wait || 20000, function () { req.destroy(); done(new Error('timeout')); });
     req.on('error', function (err) { done(err); });
     req.end();
   }
   go(target);
 }
 
-function fetchBest(target, range, cb) {
+function fetchBest(target, range, cb, wait) {
   var start = uaIndex;
   var i = 0;
   function attempt() {
@@ -148,7 +165,7 @@ function fetchBest(target, range, cb) {
       }
       if (code > 0 && code < 400) uaIndex = (start + i) % UAS.length;
       cb(null, res, finalUrl);
-    });
+    }, wait);
   }
   attempt();
 }
@@ -191,12 +208,20 @@ function onRequest(req, res) {
   var target = queryValue(search, 'u');
   if (!target || !allowed(target)) { res.writeHead(400); res.end('bad url'); return; }
   if (pathOnly === '/img') { pictures().serve(req, res, target, queryValue(search, 'w')); return; }
+  var asked = Date.now();
+  var wait = /\.(m3u8|ts|m4s|aac)$/i.test(pathOnly) ? 20000 : 45000; // a playlist or segment is quick; a movie file may not be
   fetchBest(target, req.headers.range, function (err, up, finalUrl) {
     if (err || !up) {
+      note(req.method + ' ' + pathOnly + ' ' + mask(target) + ' range=' + (req.headers.range || '-') + ' -> ERROR ' + (err ? String(err.message || err) : 'upstream'));
       if (!res.headersSent) { res.writeHead(502, { 'Content-Type': 'text/plain' }); res.end(err ? String(err.message || err) : 'upstream'); }
       return;
     }
     var code = up.statusCode || 502;
+    if (!/\.(ts|m4s|aac)$/i.test(pathOnly)) {
+      note(req.method + ' ' + pathOnly + ' ' + mask(target) + ' range=' + (req.headers.range || '-') + ' -> ' + code +
+        ' type=' + (up.headers['content-type'] || '-') + ' len=' + (up.headers['content-length'] || '-') +
+        ' range-back=' + (up.headers['content-range'] || '-') + ' ua=' + UAS[uaIndex] + ' ' + (Date.now() - asked) + 'ms');
+    }
     var playlist = /\.m3u8$/i.test(pathOnly) || /mpegurl/i.test(String(up.headers['content-type'] || ''));
     if (code >= 400 || playlist) {
       var chunks = [];
@@ -208,6 +233,8 @@ function onRequest(req, res) {
       up.on('end', function () {
         var buf = Buffer.concat(chunks);
         if (code >= 400) {
+          // what the provider said, so a refusal can be read back from the log (login masked)
+          note('   ' + code + ' says: ' + mask(buf.toString('utf8', 0, 400)).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200));
           res.writeHead(code, { 'Content-Type': 'text/plain; charset=utf-8' });
           res.end(buf.toString('utf8').slice(0, 300) || ('HTTP ' + code));
           return;
@@ -239,7 +266,7 @@ function onRequest(req, res) {
     var stop = function () { if (up.destroy) up.destroy(); };
     req.on('close', stop);
     res.on('close', stop);
-  });
+  }, wait);
 }
 
 function listen(startPort, cb) {

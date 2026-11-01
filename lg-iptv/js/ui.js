@@ -214,7 +214,7 @@ const UI = (() => {
     el.innerHTML = '';
   }
 
-  const KICKERS = { live: 'Live TV', movies: 'Movie', series: 'Series', episode: 'Series', fav: 'Favorite' };
+  const KICKERS = { live: 'Live TV', movies: 'Movie', series: 'Series', episode: 'Series', fav: 'Favorite', recent: 'Resume' };
 
   // "2023 · Drama / Thriller · ★ 7.4 · 1h 52m" from whatever fields the provider sends
   function metaOf(it) {

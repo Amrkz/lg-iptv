@@ -53,6 +53,35 @@ function exitApp() {
   else window.close();
 }
 
+// Back at the top level asks first. A slip of the thumb should not drop the viewer out of the app.
+let exitOpen = false, exitReturn = null;
+function askExit() {
+  const box = document.getElementById('exitbox');
+  const stay = document.getElementById('exit-stay');
+  if (!box || !stay) { exitApp(); return; }
+  if (exitOpen) return;
+  exitOpen = true;
+  exitReturn = document.activeElement;
+  box.classList.remove('hidden');
+  stay.focus(); // the safe answer is the one under the cursor
+}
+function closeExit() {
+  if (!exitOpen) return;
+  exitOpen = false;
+  document.getElementById('exitbox').classList.add('hidden');
+  const back = exitReturn;
+  exitReturn = null;
+  if (back && document.body.contains(back)) { try { back.focus({ preventScroll: true }); } catch (e) { back.focus(); } }
+}
+(function () {
+  const stay = document.getElementById('exit-stay');
+  const leave = document.getElementById('exit-leave');
+  const box = document.getElementById('exitbox');
+  if (stay) stay.addEventListener('click', closeExit);
+  if (leave) leave.addEventListener('click', () => { closeExit(); exitApp(); });
+  if (box) box.addEventListener('mousedown', (e) => { if (e.target === box) closeExit(); });
+})();
+
 // A second press of the app icon must bring this window forward.
 document.addEventListener('webOSRelaunch', () => {
   if (window.PalmSystem && PalmSystem.activate) PalmSystem.activate();
@@ -68,6 +97,17 @@ document.addEventListener('keydown', (e) => {
   pointerAim = false;
   const k = e.keyCode;
 
+  // the exit question owns the keys while it is open
+  if (exitOpen) {
+    e.preventDefault();
+    if (k === KEYS.BACK) { closeExit(); return; }
+    const stay = document.getElementById('exit-stay'), leave = document.getElementById('exit-leave');
+    if (k === KEYS.LEFT || k === KEYS.UP) stay.focus();
+    else if (k === KEYS.RIGHT || k === KEYS.DOWN) leave.focus();
+    else if (k === KEYS.ENTER) (document.activeElement === leave ? leave : stay).click();
+    return;
+  }
+
   // the player owns every key while it is open
   if (window.Player && !document.getElementById('player').classList.contains('hidden')) {
     Player.handleKey(e);
@@ -77,7 +117,7 @@ document.addEventListener('keydown', (e) => {
   if (k === KEYS.BACK) {
     e.preventDefault();
     if (window.App && App.onBack && App.onBack()) return;
-    exitApp();
+    askExit();
     return;
   }
 
