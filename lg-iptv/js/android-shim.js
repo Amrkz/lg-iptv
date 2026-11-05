@@ -2,16 +2,93 @@
 (function () {
   'use strict';
   var isCap = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-  var isAndroid = isCap && ((window.Capacitor.getPlatform && window.Capacitor.getPlatform()) === 'android');
-  window.KayanPlatform = { isCapacitor: isCap, isAndroid: isAndroid, isWebOS: !!(window.PalmSystem || window.webOS) };
-
-  // Mark body for CSS (touch scroll, TV banner spacing, etc.)
+  var isAndroidNative = isCap && ((window.Capacitor.getPlatform && window.Capacitor.getPlatform()) === 'android');
+  var isWebOS = !!(window.PalmSystem || window.webOS);
+  // Force Android layout for Capacitor, ?plat=android, or a prior localStorage flag (tests / sideload previews).
+  var forceAndroid = false;
   try {
-    document.documentElement.classList.add(isAndroid ? 'plat-android' : (window.KayanPlatform.isWebOS ? 'plat-webos' : 'plat-web'));
+    forceAndroid = /(?:\?|&)plat=android(?:&|$)/.test(String(location.search || '')) ||
+      localStorage.getItem('kayan.plat') === 'android';
+  } catch (e) {}
+  var markedAndroid = false;
+  try { markedAndroid = document.documentElement.classList.contains('plat-android'); } catch (e) {}
+  var isAndroid = isAndroidNative || markedAndroid || (!isWebOS && forceAndroid);
+  window.KayanPlatform = {
+    isCapacitor: isCap,
+    isAndroid: isAndroid,
+    isAndroidNative: isAndroidNative,
+    isWebOS: isWebOS
+  };
+
+  // Mark document for CSS (touch scroll, TV banner spacing, stage fit, etc.)
+  try {
+    var root = document.documentElement;
+    if (isAndroid) root.classList.add('plat-android');
+    else root.classList.add(isWebOS ? 'plat-webos' : 'plat-web');
     if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
-      document.documentElement.classList.add('touch');
+      root.classList.add('touch');
     }
   } catch (e) {}
+
+  // ---------- Uniform stage fit (1920×1080 → viewport) ----------
+  // Only on Android / forced Android. webOS keeps pixel-perfect 1920×1080 with no transform
+  // (scaling an ancestor of <video> can blank the picture on webOS).
+  var STAGE_W = 1920;
+  var STAGE_H = 1080;
+  function fitStage() {
+    if (!isAndroid && !(document.documentElement && document.documentElement.classList.contains('plat-android'))) return;
+    if (isWebOS) return;
+    var stage = document.getElementById('app');
+    if (!stage) return;
+    var root = document.documentElement;
+    var body = document.body;
+    var vw = window.innerWidth || root.clientWidth || STAGE_W;
+    var vh = window.innerHeight || root.clientHeight || STAGE_H;
+    if (!vw || !vh) return;
+    // Kill any leftover CSS zoom from keys.js so we never double-scale.
+    try {
+      root.style.zoom = '';
+      root.style.marginLeft = '';
+      root.style.marginTop = '';
+      root.style.width = vw + 'px';
+      root.style.height = vh + 'px';
+      root.style.overflow = 'hidden';
+      if (body) {
+        body.style.width = vw + 'px';
+        body.style.height = vh + 'px';
+        body.style.overflow = 'hidden';
+        body.style.margin = '0';
+        body.style.position = 'relative';
+      }
+    } catch (e0) {}
+    var s = Math.min(vw / STAGE_W, vh / STAGE_H);
+    if (!isFinite(s) || s <= 0) s = 1;
+    // Snap near-identity so a true 1080p window stays crisp
+    if (s > 0.995 && s < 1.005) s = 1;
+    var ox = Math.round((vw - STAGE_W * s) / 2);
+    var oy = Math.round((vh - STAGE_H * s) / 2);
+    stage.style.width = STAGE_W + 'px';
+    stage.style.height = STAGE_H + 'px';
+    stage.style.position = 'absolute';
+    stage.style.left = '0';
+    stage.style.top = '0';
+    stage.style.transformOrigin = '0 0';
+    stage.style.transform = 'translate(' + ox + 'px,' + oy + 'px) scale(' + s + ')';
+    stage.setAttribute('data-scale', String(s));
+    try {
+      if (vh >= vw) root.classList.add('portrait');
+      else root.classList.remove('portrait');
+      root.style.setProperty('--stage-scale', String(s));
+    } catch (e2) {}
+  }
+  window.KayanFitStage = fitStage;
+  // Run ASAP (script is at end of body so #app exists) and on every resize / orientation change.
+  try { fitStage(); } catch (e) {}
+  window.addEventListener('resize', fitStage, false);
+  window.addEventListener('orientationchange', function () { setTimeout(fitStage, 50); }, false);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', fitStage, false);
+  }
 
   // Capacitor hardware Back -> same path as webOS BACK (keyCode 461)
   function wireBack() {

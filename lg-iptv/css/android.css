@@ -22,3 +22,38 @@ html.plat-android #login-help {
 html.plat-android.touch #login-help::after {
   content: none;
 }
+
+/*
+ * Fixed 1920×1080 stage, scaled to fit any CSS viewport.
+ * webOS keeps the original html/body 1920×1080 rules and never gets .plat-android,
+ * so its look stays unchanged. Android WebView (often ~960×540 CSS px at DPR 2)
+ * fills the real viewport and letterboxes the stage.
+ */
+html.plat-android,
+html.plat-android body {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  background: var(--ink, #0c0c0e);
+}
+html.plat-android body {
+  position: relative;
+}
+html.plat-android #app {
+  width: 1920px;
+  height: 1080px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  overflow: hidden;
+  will-change: transform;
+  background: var(--ink, #0c0c0e);
+}
+/* Phone portrait: keep colour-key hints from eating vertical space under the menu */
+html.plat-android.touch.portrait .hint {
+  display: none;
+}

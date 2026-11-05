@@ -432,7 +432,8 @@ html[dir="rtl"] .picker-panel, html[dir="rtl"] .exit-actions { text-align: start
 html[dir="rtl"] .exit-actions .d-item + .d-item { margin-left: 0; margin-right: 18px; }
 /* the top bar: one line for the logo, the menu, the language and Logout; the colour-key hint sits under it */
 .navbtn, .hint, .logo, .hint span { white-space: nowrap; }
-.hint { position: absolute; top: 88px; right: var(--gutter); margin: 0; font-size: 20px; }
+/* Sit under the top bar / red active underline so colour-key labels never cover the tabs (EN + AR). */
+.hint { position: absolute; top: 128px; right: var(--gutter); margin: 0; font-size: 18px; line-height: 1; z-index: 11; pointer-events: none; }
 #home .topbar #lang { margin-left: auto; margin-right: 8px; }
 html[dir="rtl"] .hint { right: auto; left: var(--gutter); }
 html[dir="rtl"] #home .topbar #lang { margin-left: 8px; margin-right: auto; }
@@ -490,6 +491,15 @@ html[lang="ar"] .hero h2, html[lang="ar"] .hero p, html[lang="ar"] .hero-meta { 
 .card .qual { top: 12px; left: 12px; border-radius: 8px; }
 .card .prog { height: 7px; }
 
+
+/* Arabic labels are longer: tighten the top bar so Theme / Language / Logout stay on-screen */
+html[lang="ar"] .logo { font-size: 44px; }
+html[lang="ar"] nav { margin-left: 28px; margin-right: 28px; }
+html[lang="ar"] .navbtn { font-size: 22px; padding: 10px 14px; }
+html[lang="ar"] .clock { font-size: 22px; min-width: 4.5em; margin-inline-end: 10px; }
+html[lang="ar"] #theme-btn { padding: 10px 14px; }
+html[lang="ar"] #home .topbar #lang,
+html[lang="ar"] #logout { font-size: 22px; padding: 10px 14px; }
 
 /* offline downloads */
 .card .dl-badge { position: absolute; top: 10px; right: 12px; padding: 4px 10px; border-radius: 8px; background: rgba(229, 9, 20, 0.92); color: #fff; font-size: 16px; font-weight: 700; letter-spacing: 0.04em; }

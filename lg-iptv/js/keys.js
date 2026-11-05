@@ -161,6 +161,15 @@ document.addEventListener('keydown', (e) => {
   const W = 1920, H = 1080;
   const root = document.documentElement;
   function fit() {
+    // Android / Capacitor: CSS zoom is unreliable in WebView and double-scales with the
+    // transform stage in android-shim.js. Keep the zoom path for webOS / desktop only.
+    if (root.classList.contains('plat-android') || (window.KayanPlatform && window.KayanPlatform.isAndroid)) {
+      root.style.zoom = '';
+      root.style.marginLeft = '';
+      root.style.marginTop = '';
+      if (window.KayanFitStage) window.KayanFitStage();
+      return;
+    }
     const s = Math.min(window.innerWidth / W, window.innerHeight / H);
     if (!s || !isFinite(s)) return;
     root.style.zoom = Math.abs(s - 1) < 0.005 ? '' : String(s);
