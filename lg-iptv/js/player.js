@@ -372,7 +372,7 @@ const Player = (() => {
 
   // ---------- continue watching ----------
   function seriesMeta(i) {
-    return i && i.series ? { sid: i.series.sid, sname: i.series.name, sn: i.series.season, epn: i.series.ep } : {};
+    return i && i.series ? { sid: i.series.sid, sname: i.series.name, sn: i.series.season, epn: i.series.ep, scover: i.series.cover || '' } : {};
   }
 
   // an episode is done: it leaves Continue Watching and the next episode takes its place

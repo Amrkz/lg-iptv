@@ -62,6 +62,7 @@ I18n.add('ar', {
 
   // series
   'S{s}:E{e}': 'م{s}:ح{e}',
+  'S{s} E{e}': 'م{s} ح{e}',
   'Season {n}': 'الموسم {n}',
   'Episode': 'حلقة',
   'Episodes': 'الحلقات',

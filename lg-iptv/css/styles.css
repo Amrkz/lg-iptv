@@ -146,13 +146,14 @@ nav .navbtn + .navbtn { margin-left: 8px; }
    sliced in half, which is what the old line-clamp did on this TV. */
 .card .title { position: absolute; left: 0; right: 0; bottom: 0; padding: 32px 16px 18px; font-size: 22px; font-weight: 700; line-height: 1.4;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.92) 18%, rgba(0, 0, 0, 0)); }
-.card .title span { display: block; overflow: hidden; max-height: calc(2 * 1.4em); }
+.card .title > span:not(.sub) { display: block; overflow: hidden; max-height: calc(2 * 1.4em); }
+.card .title .sub { display: block; font-size: 18px; font-weight: 600; letter-spacing: 0.02em; color: #c8c8d0; max-height: 1.35em; overflow: hidden; margin-top: 2px; }
 /* no artwork: the name becomes the tile */
 .card.noart { display: flex; align-items: center; justify-content: center; }
 .card.noart .title { position: static; padding: 12px 16px; text-align: center; background: none; font: 900 32px/1.35 var(--display); text-transform: uppercase; }
-.card.noart .title span { max-height: calc(3 * 1.35em); }
+.card.noart .title > span:not(.sub) { max-height: calc(3 * 1.35em); }
 .card.chip.noart .title { font-size: 26px; }
-.card.chip.noart .title span { max-height: calc(2 * 1.35em); }
+.card.chip.noart .title > span:not(.sub) { max-height: calc(2 * 1.35em); }
 .card .qual { position: absolute; top: 10px; left: 10px; padding: 4px 10px; border-radius: 6px; background: rgba(0, 0, 0, 0.78); color: #fff; font-size: 18px; font-weight: 700; letter-spacing: 0.04em; }
 .card .star { position: absolute; top: 10px; right: 14px; color: var(--gold); font-size: 30px; line-height: 1; text-shadow: 0 2px 8px #000; }
 .card .prog, .d-thumb .prog { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: rgba(255, 255, 255, 0.28); }
@@ -485,5 +486,6 @@ html[lang="ar"] .hero h2, html[lang="ar"] .hero p, html[lang="ar"] .hero-meta { 
 .row-items:focus-within .card:not(:focus) { opacity: 0.42; }
 .card .title { padding: 40px 16px 16px; font-size: 22px; background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 22%, rgba(0, 0, 0, 0)); }
 .card:not(:focus) .title { color: #e4e4ea; }
+.card .title .sub { font-size: 17px; color: #d2d2da; }
 .card .qual { top: 12px; left: 12px; border-radius: 8px; }
 .card .prog { height: 7px; }

@@ -47,7 +47,7 @@ const App = (() => {
     };
     if (kind === 'episode') {
       // saved with the watch progress, so Continue Watching can reopen the whole series
-      out.series = { sid: it.sid, name: it.seriesName, season: it.season, ep: it.ep };
+      out.series = { sid: it.sid, name: it.seriesName, season: it.season, ep: it.ep, cover: it.seriesCover || '' };
     }
     if (kind === 'live') {
       out.live = { streamId: it.stream_id, num: it.num, archive: API.hasArchive(it), item: it };
@@ -119,8 +119,10 @@ const App = (() => {
 
   // Continue Watching: reopen the whole series so Next episode, Episodes and autoplay work
   function openContinue(entry) {
-    const series = { series_id: entry.sid, name: entry.sname || entry.name, cover: entry.icon };
-    const plain = () => pick({ name: entry.name, icon: entry.icon, url: entry.url }, 'series');
+    const cover = entry.scover || entry.icon || '';
+    const plain = () => pick({ name: entry.sname || entry.name, icon: cover, url: entry.url }, 'series');
+    if (entry.sid == null || entry.sid === '') { plain(); return; } // old row with no series id: play the saved episode
+    const series = { series_id: entry.sid, name: entry.sname || entry.name, cover: cover };
     API.getSeriesInfo(entry.sid).then(info => {
       const built = episodesFromInfo(series, info);
       let idx = -1;
@@ -145,12 +147,48 @@ const App = (() => {
   // "Recently Watched" for one department, without the titles already shown under Continue Watching
   function watchedRow(kind, cont) {
     const inCont = {};
-    cont.forEach(e => { inCont[kind === 'series' ? 's' + e._cont.sid : e.url] = true; });
+    cont.forEach(e => {
+      const c = e._cont || e;
+      if (kind === 'series') {
+        if (c.sid != null && c.sid !== '') inCont['s' + c.sid] = true;
+        const nm = String(c.sname || e.name || '').toLowerCase().trim();
+        if (nm) inCont['n:' + nm] = true;
+      } else {
+        const url = e.url || c.url || API.streamUrl(e, 'movies');
+        if (url) inCont[url] = true;
+      }
+    });
     return API.getWatched(kind).filter(w => {
-      if (kind === 'series') return !inCont[w.key];
+      if (kind === 'series') {
+        if (inCont[w.key]) return false;
+        if (w.series_id != null && inCont['s' + w.series_id]) return false;
+        const nm = String(w.name || '').toLowerCase().trim();
+        if (nm && inCont['n:' + nm]) return false;
+        return true;
+      }
       const url = w.url || API.streamUrl(w, 'movies');
       return !url || !inCont[url];
     });
+  }
+
+  // One Continue Watching card: series show the series name/poster and "S2 E5", not every episode.
+  function contCard(e) {
+    const seriesLike = e.kind === 'series' || (e.sid != null && e.sid !== '');
+    if (seriesLike) {
+      const name = e.sname || String(e.name || '').split(/\s*[·|]\s*/)[0] || e.name || '';
+      const sub = (e.sn != null && e.sn !== '' && e.epn != null && e.epn !== '')
+        ? tr('S{s} E{e}', { s: e.sn, e: e.epn }) : '';
+      return {
+        name: name,
+        icon: e.scover || e.icon || '',
+        cover: e.scover || e.icon || '',
+        url: e.url,
+        sub: sub,
+        series_id: e.sid,
+        _cont: e
+      };
+    }
+    return { name: e.name, icon: e.icon, url: e.url, _cont: e };
   }
 
   // ---------- quality grouping ----------
@@ -381,7 +419,7 @@ const App = (() => {
           }
         }
         if (kind === 'movies' || kind === 'series') {
-          const cont = API.listProgress(kind).slice(0, 20).map(e => ({ name: e.name, icon: e.icon, url: e.url, _cont: e }));
+          const cont = API.listProgressCollapsed(kind).slice(0, 20).map(contCard);
           const seen = watchedRow(kind, cont);
           if (seen.length) {
             itemsByCat.__rec = seen;
@@ -483,8 +521,7 @@ const App = (() => {
   }
 
   // ---------- recent: pick up where the viewer left off ----------
-  // Continue Watching: movies and episodes that were started and not finished, newest first.
-  // Recent Channels: the live channels watched last.
+  // Three clear shelves: Live TV, Movies, Series. Series episodes collapse into one series card.
   function showRecent(refocus) {
     loadId++;
     currentKind = 'recent';
@@ -493,21 +530,21 @@ const App = (() => {
     stopSlideshow();
     UI.clearHero(hero());
     const cats = [], map = {};
-    const cont = API.listProgress().slice(0, 20).map(e => ({ name: e.name, icon: e.icon, url: e.url, _cont: e }));
-    if (cont.length) { cats.push({ category_id: '__cont', category_name: tr('Continue Watching'), kind: 'recent', limit: 20 }); map.__cont = cont; }
-    const contMovies = cont.filter(e => e._cont.kind === 'movies'), contSeries = cont.filter(e => e._cont.kind === 'series');
-    const seenMovies = watchedRow('movies', contMovies), seenSeries = watchedRow('series', contSeries);
-    if (seenMovies.length) { cats.push({ category_id: '__wm', category_name: tr('Recently Watched Movies'), kind: 'movies', limit: 20 }); map.__wm = seenMovies; }
-    if (seenSeries.length) { cats.push({ category_id: '__ws', category_name: tr('Recently Watched Series'), kind: 'series', limit: 20 }); map.__ws = seenSeries; }
-    const rec = API.getRecent();
-    if (rec.length) { cats.push({ category_id: '__recent', category_name: tr('Recent Channels'), kind: 'live', limit: 20 }); map.__recent = rec; }
+    const contMovies = API.listProgressCollapsed('movies').slice(0, 20).map(contCard);
+    const contSeries = API.listProgressCollapsed('series').slice(0, 20).map(contCard);
+    const movies = contMovies.concat(watchedRow('movies', contMovies));
+    const series = contSeries.concat(watchedRow('series', contSeries));
+    const live = API.getRecent();
+    if (live.length) { cats.push({ category_id: '__live', category_name: tr('Live TV'), kind: 'live', limit: 20 }); map.__live = live; }
+    if (movies.length) { cats.push({ category_id: '__movies', category_name: tr('Movies'), kind: 'movies', limit: 20 }); map.__movies = movies; }
+    if (series.length) { cats.push({ category_id: '__series', category_name: tr('Series'), kind: 'series', limit: 20 }); map.__series = series; }
     if (!cats.length) {
       slides = [];
       UI.setMessage(rows(), tr('Nothing to resume yet. Movies and episodes you start, and channels you watch, will show up here.'));
       return;
     }
     render(cats, map, 'recent');
-    slides = cont.concat(seenMovies, seenSeries, rec).slice(0, 6);
+    slides = live.concat(movies, series).slice(0, 6);
     slideKind = 'recent';
     slideIdx = 0;
     if (!refocus) startSlideshow(false);

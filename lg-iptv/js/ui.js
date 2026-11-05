@@ -97,6 +97,12 @@ const UI = (() => {
         const label = document.createElement('span');
         label.textContent = it.name || it.title || '';
         title.appendChild(label);
+        if (it.sub) {
+          const sub = document.createElement('span');
+          sub.className = 'sub';
+          sub.textContent = it.sub;
+          title.appendChild(sub);
+        }
         card.appendChild(title);
         const star = document.createElement('div');
         star.className = 'star';

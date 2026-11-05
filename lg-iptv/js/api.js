@@ -338,7 +338,35 @@ const API = (() => {
 
   // ---------- recently watched movies and series ----------
   // One short list per kind: the title, newest first. A series is kept as the series, not as an episode.
-  function getWatched(kind) { return load('watched_' + kind) || []; }
+  // Old builds may have stored one row per episode; fold those into one series entry on read.
+  function collapseWatchedSeries(list) {
+    const byKey = {}, order = [];
+    let changed = false;
+    (list || []).forEach(w => {
+      let key = w.key, entry = w;
+      const sid = w.series_id != null && w.series_id !== '' ? w.series_id : (w.sid != null && w.sid !== '' ? w.sid : null);
+      if (sid != null) {
+        key = 's' + sid;
+        entry = { key: key, series_id: sid, name: w.name || w.seriesName || w.sname || '', cover: w.cover || w.seriesCover || w.icon || '' };
+        if (w.key !== key) changed = true;
+      } else if (w.url && /\/series\//i.test(w.url)) {
+        const nm = String(w.name || '').split(/\s*[·|]\s*/)[0].trim() || w.name || '';
+        key = 'n:' + String(nm).toLowerCase();
+        entry = { key: key, name: nm, cover: w.cover || w.icon || '' };
+        changed = true;
+      }
+      if (!byKey[key]) { byKey[key] = entry; order.push(key); }
+      else changed = true;
+    });
+    return { list: order.map(k => byKey[k]), changed: changed };
+  }
+  function getWatched(kind) {
+    const raw = load('watched_' + kind) || [];
+    if (kind !== 'series') return raw;
+    const migrated = collapseWatchedSeries(raw);
+    if (migrated.changed) store('watched_series', migrated.list);
+    return migrated.list;
+  }
   function addWatched(kind, entry) {
     const list = getWatched(kind).filter(w => w.key !== entry.key);
     list.unshift(entry);
@@ -353,12 +381,42 @@ const API = (() => {
     store('recent', list.slice(0, 20));
   }
 
-  // Watch progress ("continue watching"): { [url]: { url, name, icon, kind, t, d, ts } }
+  // Watch progress ("continue watching"): { [url]: { url, name, icon, kind, t, d, ts, sid?, sname?, sn?, epn?, scover? } }
   const MAX_PROGRESS = 60;
   function progressMap() { return load('prog') || {}; }
   function getProgress(url) { return progressMap()[url] || null; }
+
+  // Fill series fields on old rows that only saved "Title · S2:E5 …" in the name.
+  function normalizeProgress(e) {
+    if (!e || typeof e !== 'object') return e;
+    const out = Object.assign({}, e);
+    const parts = String(out.name || '').split(/\s*[·|]\s*/);
+    if ((out.sid == null || out.sid === '') && parts.length >= 2) {
+      const ep = parts[1].match(/S\s*(\d+)\s*[:\s]*E\s*(\d+)/i) || parts[1].match(/م\s*(\d+)\s*[:\s]*ح\s*(\d+)/i);
+      if (ep) {
+        if (!out.sname) out.sname = parts[0].trim();
+        if (out.sn == null || out.sn === '') out.sn = ep[1];
+        if (out.epn == null || out.epn === '') out.epn = ep[2];
+      }
+    }
+    if (!out.kind && /\/series\//i.test(out.url || '')) out.kind = 'series';
+    if (!out.sname && out.kind === 'series' && parts[0]) out.sname = parts[0].trim();
+    return out;
+  }
+
+  // Group key: one card per series (by id, else by series name), one card per movie/url.
+  function progressGroupKey(e) {
+    e = normalizeProgress(e);
+    const seriesLike = e.kind === 'series' || (e.sid != null && e.sid !== '') || /\/series\//i.test(e.url || '');
+    if (!seriesLike) return 'u:' + e.url;
+    if (e.sid != null && e.sid !== '') return 's:' + e.sid;
+    if (e.sname) return 'n:' + String(e.sname).toLowerCase().trim();
+    return 'u:' + e.url;
+  }
+
   function saveProgress(entry) {
     const m = progressMap();
+    entry = normalizeProgress(entry);
     entry.ts = Date.now();
     m[entry.url] = entry;
     const keys = Object.keys(m);
@@ -373,7 +431,18 @@ const API = (() => {
   }
   function listProgress(kind) {
     const m = progressMap();
-    return Object.keys(m).map(k => m[k]).filter(e => !kind || e.kind === kind).sort((a, b) => b.ts - a.ts);
+    return Object.keys(m).map(k => normalizeProgress(m[k])).filter(e => !kind || e.kind === kind).sort((a, b) => b.ts - a.ts);
+  }
+  // Same list, but every series is one row: the latest episode watched.
+  function listProgressCollapsed(kind) {
+    const seen = {}, out = [];
+    listProgress(kind).forEach(e => {
+      const k = progressGroupKey(e);
+      if (seen[k]) return;
+      seen[k] = true;
+      out.push(e);
+    });
+    return out;
   }
 
   function getFavs() { return load('favs') || []; }
@@ -540,6 +609,6 @@ const API = (() => {
   }
   ensureProxy();
 
-  return { getWatched, addWatched, imgUrl, clearLists, norm, getAll, search, getShortEpg, getArchiveGuide, catchupUrls, hasArchive, pref, getIntro, setIntro, getVodInfoCached, getRecent, addRecent, progressMap, getProgress, saveProgress, removeProgress, listProgress, parseServer, getLast, liveAltUrl, xtreamLogin, m3uLogin, ensureLoaded, getConfig, clearConfig, getCategories, getStreams, streamUrl, getSeriesInfo, getVodInfo, getFavs, toggleFav, isFav, proxyUrl, get proxyError() { return proxyError; } };
+  return { getWatched, addWatched, imgUrl, clearLists, norm, getAll, search, getShortEpg, getArchiveGuide, catchupUrls, hasArchive, pref, getIntro, setIntro, getVodInfoCached, getRecent, addRecent, progressMap, getProgress, saveProgress, removeProgress, listProgress, listProgressCollapsed, parseServer, getLast, liveAltUrl, xtreamLogin, m3uLogin, ensureLoaded, getConfig, clearConfig, getCategories, getStreams, streamUrl, getSeriesInfo, getVodInfo, getFavs, toggleFav, isFav, proxyUrl, get proxyError() { return proxyError; } };
 })();
 window.API = API;
