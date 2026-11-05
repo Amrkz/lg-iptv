@@ -1,7 +1,7 @@
 # Kayan IPTV — Google Play listing
 
 **Package:** `com.amrkz.kayaniptv`  
-**versionCode:** 3 · **versionName:** 1.0.2  
+**versionCode:** 4 · **versionName:** 1.0.3  
 **Upload key alias:** `kayan` (keystore: `kayan-release.jks`)  
 **Privacy policy URL:** https://amrkz.github.io/lg-iptv/  
 **Fallback raw URL:** https://raw.githubusercontent.com/Amrkz/lg-iptv/main/PRIVACY.md
@@ -106,6 +106,6 @@ Expect rating roughly **PEGI 3 / ESRB Everyone** for the app binary itself; some
 | `tv-banner-1280x720.png` | 1280×720 Android TV banner |
 | `screenshots/phone-*.png` | Phone (1080×1920 and 1920×1080) |
 | `screenshots/tv-01-home-en.png` | TV 1920×1080 |
-| `KayanIPTV-1.0.2.aab` | Signed release App Bundle (upload key) |
+| `KayanIPTV-1.0.3.aab` | Signed release App Bundle (upload key) |
 
 Screenshots use **generic placeholder titles only** (e.g. Northern Lights, Harbor Night). No copyrighted channel or studio names/logos.
