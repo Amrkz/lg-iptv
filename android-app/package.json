@@ -1,6 +1,6 @@
 {
   "name": "kayan-iptv",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Kayan IPTV for Android (phone + TV)",
   "private": true,
   "scripts": {

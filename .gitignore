@@ -23,3 +23,9 @@ android-app/keystore/
 android-app/KayanIPTV.apk
 android-app/www/
 *.apk
+
+# Play / signing
+*.aab
+play/*.aab
+**/keystore/*.jks
+**/keystore/*.keystore

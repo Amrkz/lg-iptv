@@ -1,12 +1,62 @@
-# Privacy Policy
+# Privacy Policy — Kayan IPTV
 
-This application respects your privacy and is designed to keep your data strictly on your device.
+**Last updated:** 6 November 2026  
+**Developer:** Amr Kazzaz (Amrkz)  
+**Contact:** amokazes@gmail.com  
+**Apps:** Kayan IPTV on Android (phones, tablets, Android TV) and LG webOS TV.
 
-- **Local Storage Only:** All login details (server URL, username, password), favorites, watch progress, recent channels, and preferences are saved exclusively in your TV's local storage.
-- **Direct Communication:** The app communicates solely with the IPTV provider you manually configure, as well as a local helper service running on the TV itself to enable video playback. Poster and channel pictures are loaded from the picture addresses that your provider's lists contain, so those requests go to whichever server the provider names. The local helper downloads these pictures and keeps a temporary copy in the TV's memory so they show faster next time; the copy is removed when the TV restarts.
-- **No Tracking:** There are no analytics, no advertisements, and no data is ever sent to the developer.
-- **No Provided Content:** This application is a player only and does not include, host, or provide any channels, media, or playlists.
+Kayan IPTV is a **media player only**. It does not include, host, sell, or provide any TV channels, movies, series, or playlists. You supply your own M3U playlist or Xtream Codes login from a provider you choose.
 
-## Removing your data
+## What we collect
 
-Choosing **Logout** in the app removes your saved login. Uninstalling the app removes everything else the app has stored on the TV.
+We collect **nothing**.
+
+- There are **no analytics**, crash reporters, advertising SDKs, or trackers in the app.
+- No account with us is required. We do not operate a cloud backend for this app.
+- The developer never receives your playlists, passwords, watch history, or device identifiers from the app.
+
+## Data stored on your device
+
+Everything the app remembers stays **only on your device** (local storage / app private storage):
+
+- Playlist URLs or Xtream server URL, username, and password that **you** enter
+- Favorites, recent / history items, watch progress
+- Theme, language, parental PIN, player and download preferences
+- Optionally, media files **you** choose to download for offline playback
+
+Uninstalling the app, or using Logout / Reset in Settings, removes this data from the device (downloaded files are removed when you delete them or uninstall).
+
+## Network use
+
+The app opens network connections only to:
+
+1. **Your IPTV provider** — the server URL you configured (playlist, EPG, streams, poster URLs that appear in that provider’s lists).
+2. **Poster / artwork hosts** named in those lists (images only).
+
+We do not proxy or log that traffic. Cleartext (HTTP) may be used when your provider’s server requires it; prefer HTTPS providers when available.
+
+## Permissions (Android)
+
+Typical permissions:
+
+- **Internet** — reach your provider and load artwork
+- **Network state** — detect connectivity
+- **Wake lock** — keep playback from sleeping while you watch
+
+No SMS, call log, contacts, precise location, microphone, or camera access is requested. Storage access, if used, is only for downloads you start inside the app.
+
+## Children
+
+The app is a general-purpose player. Parental PIN features are local device locks you configure; they are not a substitute for your provider’s content policies. Do not share adult-oriented playlists with children.
+
+## Third parties
+
+Google Play / device OEMs may process install and update data under their own policies. That is outside this app’s control.
+
+## Changes
+
+We may update this policy when the app changes. The “Last updated” date above will change. Continued use after an update means you accept the revised policy.
+
+## Contact
+
+Questions about privacy: **amokazes@gmail.com**
