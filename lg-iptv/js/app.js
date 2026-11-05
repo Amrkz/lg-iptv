@@ -14,6 +14,7 @@ const App = (() => {
 
   function setActiveNav(kind) {
     UI.$$('.navbtn').forEach(b => b.classList.toggle('active', b.dataset.cat === kind));
+    try { updateBentoLayout(); } catch (e) {}
   }
 
   function favOf(item, kind) {
@@ -308,6 +309,80 @@ const App = (() => {
   }
   UI.$('#confirm').addEventListener('mousedown', (e) => { if (e.target === UI.$('#confirm')) closeConfirm(); });
 
+  // ---------- theme picker (live preview on focus) ----------
+  let themeOpen = false, themeReturn = null, themePreview = null;
+  function closeThemePicker(commit) {
+    if (!themeOpen) return;
+    themeOpen = false;
+    UI.$('#theme-picker').classList.add('hidden');
+    if (!commit && themePreview != null) {
+      Settings.set('theme', themePreview); // restore if cancelled
+    }
+    themePreview = null;
+    updateBentoLayout();
+    if (themeReturn && document.body.contains(themeReturn)) {
+      try { themeReturn.focus({ preventScroll: true }); } catch (e) { themeReturn.focus(); }
+    }
+    themeReturn = null;
+    if (currentKind === 'settings') showSettings(true);
+  }
+  function openThemePicker() {
+    const list = UI.$('#theme-picker-list');
+    list.innerHTML = '';
+    const cur = Settings.get('theme') || 'default';
+    themePreview = cur;
+    Settings.THEMES.forEach(t => {
+      const b = document.createElement('button');
+      b.className = 'd-item' + (t.id === cur ? ' on' : '');
+      b.dataset.theme = t.id;
+      const sw = document.createElement('span');
+      sw.className = 'swatch swatch-' + t.id;
+      sw.setAttribute('aria-hidden', 'true');
+      const nm = document.createElement('span');
+      nm.className = 'd-name';
+      nm.textContent = Settings.themeLabel(t.id);
+      const sub = document.createElement('span');
+      sub.className = 'd-sub';
+      sub.textContent = tr(t.blurb);
+      const col = document.createElement('span');
+      col.style.flex = '1';
+      col.appendChild(nm);
+      col.appendChild(sub);
+      b.appendChild(sw);
+      b.appendChild(col);
+      b.addEventListener('focus', () => {
+        Settings.set('theme', t.id); // live preview
+        updateBentoLayout();
+      });
+      b.addEventListener('click', () => {
+        Settings.set('theme', t.id);
+        themePreview = t.id; // committing — do not restore
+        closeThemePicker(true);
+        toastHome(tr('Theme') + ': ' + Settings.themeLabel(t.id));
+      });
+      list.appendChild(b);
+    });
+    themeReturn = document.activeElement;
+    themeOpen = true;
+    UI.$('#theme-picker').classList.remove('hidden');
+    const focusEl = list.querySelector('.d-item.on') || list.querySelector('.d-item');
+    if (focusEl) focusEl.focus();
+  }
+  UI.$('#theme-picker').addEventListener('mousedown', (e) => {
+    if (e.target === UI.$('#theme-picker')) closeThemePicker(false);
+  });
+
+  function updateBentoLayout() {
+    const home = UI.$('#home');
+    if (!home) return;
+    const bento = Settings.get('theme') === 'bento';
+    // side-by-side hero only on movies browse; otherwise stack
+    const side = bento && currentKind === 'movies' && view === 'browse';
+    home.classList.toggle('bento-stack', bento && !side);
+    if (window.Settings && Settings.syncFrost) Settings.syncFrost();
+  }
+
+
   function dlMeta(item, kind) {
     const url = item.url || API.streamUrl(item, kind === 'episode' ? 'series' : kind);
     if (!url) return null;
@@ -542,7 +617,30 @@ const App = (() => {
             shown = [{ category_id: '__cont', category_name: tr('Continue Watching'), limit: 20 }].concat(shown);
           }
         }
+        if (Settings.get('theme') === 'bento' && kind === 'movies') {
+          itemsByCat.__bento = [
+            { name: tr('Continue Watching'), _bento: 'recent', bento: 'recent' },
+            { name: tr('Live TV'), _bento: 'live', bento: 'live' },
+            { name: tr('Movies'), _bento: 'movies', bento: 'movies' },
+            { name: tr('Series'), _bento: 'series', bento: 'series' },
+            { name: tr('Downloads'), _bento: 'dl', bento: 'dl' }
+          ];
+          shown = [{ category_id: '__bento', category_name: tr('Home'), limit: 10 }].concat(shown);
+        }
         render(shown, itemsByCat, kind);
+        // mark bento hub cards
+        if (Settings.get('theme') === 'bento' && kind === 'movies') {
+          const hub = rows().querySelector('.row');
+          if (hub) {
+            hub.querySelectorAll('.card').forEach((c, i) => {
+              const it = (itemsByCat.__bento || [])[i];
+              c.classList.add('bento-tile', 'noart');
+              if (it && it.bento) c.classList.add(it.bento);
+              if (i === 0) c.classList.add('bento-lg');
+            });
+          }
+        }
+        updateBentoLayout();
         setSlides(categories, itemsByCat, kind);
       });
     }).catch(e => {
@@ -572,6 +670,7 @@ const App = (() => {
   }
 
   function pick(item, kind, list) {
+    if (item && item._bento) { openSection(item._bento, true); return; }
     if (item._set) { handleSetting(item); return; }
     if (item.cat && Settings.catLocked(item.cat.category_name || item.name)) {
       promptValue(tr('Parental control'), tr('Enter PIN'), '', code => {
@@ -718,6 +817,7 @@ const App = (() => {
     if (a === 'lock-adult') { Settings.toggle('lockAdult'); refresh(); return; }
     if (a === 'language') { const next = I18n.next(); I18n.set(next.id); return; }
     if (a === 'accent') { Settings.cycle('accent', ['red', 'blue', 'green', 'amber', 'purple']); refresh(); return; }
+    if (a === 'theme') { openThemePicker(); return; }
     if (a === 'clock') { Settings.toggle('showClock'); refresh(); return; }
     if (a === 'hide-empty') { Settings.toggle('hideEmptyCats'); refresh(); return; }
     if (a === 'open-dl') { openSection('dl', true); return; }
@@ -1063,6 +1163,7 @@ const App = (() => {
 
   function onArrow(dir) {
     if (!homeVisible()) return false;
+    if (themeOpen) { spatialNav(dir, UI.$('#theme-picker')); return true; }
     if (confirmOpen) { spatialNav(dir, UI.$('#confirm')); return true; }
     if (pickerOpen) { spatialNav(dir, UI.$('#picker')); return true; }
     const a = document.activeElement;
@@ -1129,6 +1230,7 @@ const App = (() => {
   // Back on the home screen: step out of sub-views first, exit the app from Live TV.
   function onBack() {
     if (!homeVisible()) return false;
+    if (themeOpen) { closeThemePicker(false); return true; }
     if (confirmOpen) { closeConfirm(); return true; }
     if (pickerOpen) { closePicker(); return true; }
     if (view === 'episodes' || view === 'category') { openSection(currentKind, false); return true; } // back to the section it came from
@@ -1217,7 +1319,7 @@ const App = (() => {
 
   // colour buttons: red = search, green = favorites, blue = next section
   function onColor(k) {
-    if (!homeVisible() || pickerOpen || confirmOpen) return false;
+    if (!homeVisible() || pickerOpen || confirmOpen || themeOpen) return false;
     const goNav = () => { const nb = UI.$('.navbtn.active'); if (nb) nb.focus(); };
     if (k === KEYS.RED) { showSearch(); return true; }
     if (k === KEYS.GREEN) { openSection('fav', true); goNav(); return true; }
@@ -1310,6 +1412,10 @@ const App = (() => {
     });
   });
 
+  // theme button: open the picker (live preview while browsing themes)
+  const themeBtn = UI.$('#theme-btn');
+  if (themeBtn) themeBtn.addEventListener('click', () => openThemePicker());
+
   // language: one button on the sign-in screen and one in the top bar; it shows the language it will switch to
   ['#login-lang', '#lang'].forEach(sel => {
     const b = UI.$(sel);
@@ -1326,7 +1432,7 @@ const App = (() => {
   });
 
   // settings + clock
-  if (window.Settings) Settings.applyAll();
+  if (window.Settings) { Settings.applyAll(); try { updateBentoLayout(); } catch (e) {} }
   (function tickClock() {
     const el = UI.$('#clock');
     if (el) {

@@ -1,0 +1,1026 @@
+/* Theme system for Kayan IPTV.
+   Applied via html[data-theme="…"]. Default = current look (no override needed).
+   TV-safe: prefer translucent fills, 1px borders, inset highlights, transform-only focus.
+   Real backdrop-filter only when html.can-backdrop is set by feature detection. */
+
+:root {
+  --theme-name: default;
+  --glass: rgba(28, 28, 34, 0.62);
+  --glass-hi: rgba(255, 255, 255, 0.14);
+  --glass-bd: rgba(255, 255, 255, 0.22);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  --focus-ring: 0 0 0 5px #fff, 0 0 0 10px rgba(229, 9, 20, 0.9);
+  --panel-radius: 12px;
+  --card-radius: 12px;
+}
+
+/* frost layer: blurred artwork copy behind glass panels (TV-cheap fake frost) */
+#frost {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-size: cover;
+  background-position: center;
+  filter: blur(36px) brightness(0.45) saturate(1.3);
+  transform: scale(1.12);
+  opacity: 0.85;
+}
+html[data-theme="glass"] #frost { display: block; }
+html[data-theme="glass"] #home > .topbar,
+html[data-theme="glass"] #home > .hero,
+html[data-theme="glass"] #home > .rows { position: relative; z-index: 1; }
+html[data-theme="glass"] #home > .hero { z-index: 0; }
+html[data-theme="glass"] #home > .rows { z-index: 1; }
+html[data-theme="glass"] #home > .topbar { z-index: 10; }
+
+/* ---------- Theme button & picker ---------- */
+#theme-btn {
+  flex: none;
+  min-width: 118px;
+  margin-inline-end: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+#theme-btn .theme-dot {
+  display: inline-block;
+  width: 14px; height: 14px;
+  margin-inline-end: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: middle;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.35);
+}
+.theme-picker-list { display: flex; flex-direction: column; }
+.theme-picker-list .d-item {
+  margin-bottom: 12px;
+  padding: 18px 22px;
+  border: 2px solid transparent;
+  border-radius: 14px;
+}
+.theme-picker-list .d-item .swatch {
+  flex: 0 0 72px; height: 48px; margin-inline-end: 18px;
+  border-radius: 10px; overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2);
+  background: #1a1a1e;
+  position: relative;
+}
+.theme-picker-list .d-item .swatch i {
+  position: absolute; inset: 0;
+}
+.theme-picker-list .d-item.on {
+  box-shadow: 0 0 0 3px var(--accent);
+}
+.theme-picker-list .d-item:focus {
+  outline: none;
+  background: #fff; color: #000;
+  box-shadow: var(--focus-ring);
+}
+.theme-picker-list .d-item .d-sub { display: block; margin-top: 4px; font-size: 20px; font-weight: 500; color: var(--text-3); }
+.theme-picker-list .d-item:focus .d-sub { color: #444; }
+
+/* swatch previews */
+.swatch-default { background: linear-gradient(135deg, #0c0c0e 40%, #e50914 100%); }
+.swatch-glass { background: linear-gradient(135deg, rgba(80,120,200,0.5), rgba(20,20,30,0.9)); }
+.swatch-neo { background: #ffea00; box-shadow: inset -6px -6px 0 #000, inset 6px 6px 0 #ff2d55; }
+.swatch-bento { background: linear-gradient(90deg, #1f1f28 30%, #2a2a38 30% 55%, #e50914 55% 70%, #3a3a48 70%); border-radius: 14px; }
+.swatch-swiss { background: linear-gradient(90deg, #fff 55%, #e30613 55% 70%, #111 70%); }
+
+/* ============================================================
+   GLASS — full glassmorphism, TV-cheap frost
+   ============================================================ */
+html[data-theme="glass"] {
+  --theme-name: glass;
+  --ink: #07070c;
+  --panel: rgba(28, 28, 36, 0.55);
+  --panel-hi: rgba(48, 48, 60, 0.55);
+  --panel-radius: 22px;
+  --card-radius: 18px;
+  --ring: 0 0 0 5px #fff;
+}
+html[data-theme="glass"] body {
+  background: radial-gradient(1200px 700px at 70% 10%, rgba(80, 120, 220, 0.18), transparent 60%),
+              radial-gradient(900px 600px at 10% 80%, rgba(229, 9, 20, 0.12), transparent 55%),
+              var(--ink);
+}
+html[data-theme="glass"] .topbar {
+  background: linear-gradient(to bottom, rgba(12, 14, 22, 0.55), rgba(12, 14, 22, 0.25) 70%, transparent);
+  border-bottom: 1px solid var(--glass-bd);
+  backdrop-filter: none;
+  box-shadow: var(--glass-inset);
+}
+html.can-backdrop[data-theme="glass"] .topbar {
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+}
+html[data-theme="glass"] .navbtn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 40px;
+}
+html[data-theme="glass"] .navbtn.active {
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 -3px 0 var(--accent);
+  border-color: rgba(255, 255, 255, 0.22);
+  border-radius: 40px;
+}
+html[data-theme="glass"] .navbtn:focus,
+html[data-theme="glass"] .navbtn.active:focus {
+  background: #fff; color: #000; border-radius: 40px; box-shadow: var(--focus-ring);
+}
+html[data-theme="glass"] .hero-content {
+  padding: 28px 34px;
+  background: rgba(10, 12, 20, 0.45);
+  border: 1px solid var(--glass-bd);
+  border-radius: 24px;
+  box-shadow: var(--glass-inset), 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+html.can-backdrop[data-theme="glass"] .hero-content {
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+html[data-theme="glass"] .hero-art {
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: var(--glass-inset), 0 36px 80px rgba(0, 0, 0, 0.55);
+}
+html[data-theme="glass"] .row {
+  background: transparent;
+}
+html[data-theme="glass"] .row::before,
+html[data-theme="glass"] .row:first-child::before {
+  background: linear-gradient(to bottom, rgba(7, 7, 12, 0), rgba(7, 7, 12, 0.55));
+}
+html[data-theme="glass"] .row:first-child { background: transparent; }
+html[data-theme="glass"] .card {
+  border-radius: var(--card-radius);
+  background: rgba(24, 24, 32, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: var(--glass-inset), 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+html[data-theme="glass"] .card.chip {
+  background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04));
+}
+html[data-theme="glass"] .card:focus {
+  transform: scale(1.08);
+  box-shadow: var(--focus-ring), 0 30px 56px rgba(0, 0, 0, 0.65);
+}
+html[data-theme="glass"] .login-card,
+html[data-theme="glass"] .picker-panel,
+html[data-theme="glass"] .card-box,
+html[data-theme="glass"] .pausecard,
+html[data-theme="glass"] .banner,
+html[data-theme="glass"] .chnum,
+html[data-theme="glass"] .toast {
+  background: rgba(18, 20, 28, 0.62);
+  border: 1px solid var(--glass-bd);
+  box-shadow: var(--glass-inset), 0 30px 70px rgba(0, 0, 0, 0.55);
+  border-radius: 22px;
+}
+html.can-backdrop[data-theme="glass"] .login-card,
+html.can-backdrop[data-theme="glass"] .picker-panel {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+html[data-theme="glass"] #player .pbtn {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: var(--glass-inset);
+}
+html[data-theme="glass"] #player .pbtn:focus {
+  background: #fff; border-color: #fff;
+  box-shadow: 0 0 0 5px var(--accent), 0 18px 44px rgba(0, 0, 0, 0.55);
+}
+html[data-theme="glass"] #player .ov-bottom,
+html[data-theme="glass"] #player .ov-top {
+  /* keep gradients; overlay glass on bottom bar via border highlight */
+}
+html[data-theme="glass"] #player .upbtn,
+html[data-theme="glass"] #player .skipintro,
+html[data-theme="glass"] #player .banner {
+  background: rgba(12, 14, 22, 0.55);
+  border: 1px solid var(--glass-bd);
+  box-shadow: var(--glass-inset);
+}
+html[data-theme="glass"] .drawer {
+  background: linear-gradient(to left, rgba(10, 12, 20, 0.72) 78%, rgba(10, 12, 20, 0));
+  border-left: 1px solid var(--glass-bd);
+}
+html[data-theme="glass"] .d-item {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+html[data-theme="glass"] .d-item:focus {
+  background: #fff; color: #000;
+  box-shadow: var(--focus-ring);
+}
+
+/* ============================================================
+   NEO BRUTALISM — thick borders, hard offsets, flat saturated colour
+   ============================================================ */
+html[data-theme="neo"] {
+  --theme-name: neo;
+  --ink: #fff5e8;
+  --panel: #ffea00;
+  --panel-hi: #ff2d55;
+  --text: #111;
+  --text-2: #1a1a1a;
+  --text-3: #333;
+  --accent: #ff2d55;
+  --hot: #ff2d55;
+  --display: "Marquee", Impact, "Arial Black", Arial, sans-serif;
+  --ui: "Hanken", "Arial Black", Arial, sans-serif;
+  --ring: 0 0 0 6px #111;
+  --focus-ring: 0 0 0 6px #111, 6px 6px 0 #111;
+  --panel-radius: 0;
+  --card-radius: 0;
+}
+html[data-theme="neo"] body {
+  background: #fff5e8;
+  color: #111;
+  font-weight: 700;
+}
+html[data-theme="neo"] .topbar {
+  background: #ffea00;
+  border-bottom: 6px solid #111;
+  height: 124px;
+  box-shadow: 0 8px 0 #111;
+}
+html[data-theme="neo"] .logo { color: #111; }
+html[data-theme="neo"] .logo b { color: #ff2d55; }
+html[data-theme="neo"] .navbtn {
+  color: #111;
+  border: 4px solid transparent;
+  border-radius: 0;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+html[data-theme="neo"] .navbtn.active {
+  background: #ff2d55; color: #fff;
+  box-shadow: 5px 5px 0 #111;
+  border-color: #111;
+}
+html[data-theme="neo"] .navbtn:focus,
+html[data-theme="neo"] .navbtn.active:focus {
+  background: #111; color: #ffea00;
+  box-shadow: 6px 6px 0 #ff2d55;
+  border-radius: 0;
+}
+html[data-theme="neo"] .hint, html[data-theme="neo"] .clock { color: #111; }
+html[data-theme="neo"] .hero {
+  background: #00d2ff;
+  border-bottom: 6px solid #111;
+}
+html[data-theme="neo"] .hero-bg { filter: contrast(1.2) saturate(1.6) brightness(0.85); }
+html[data-theme="neo"] .hero-slide::after {
+  background: linear-gradient(to top, #fff5e8 0%, rgba(255,245,232,0.2) 40%, transparent 70%),
+              linear-gradient(to right, rgba(255,234,0,0.75) 0%, transparent 55%);
+}
+html[data-theme="neo"] .hero-content {
+  padding: 20px 24px;
+  background: #ffea00;
+  border: 6px solid #111;
+  box-shadow: 12px 12px 0 #111;
+}
+html[data-theme="neo"] .hero h2 { color: #111; text-shadow: 4px 4px 0 #ff2d55; font-size: 92px; }
+html[data-theme="neo"] .hero-kicker { color: #ff2d55; }
+html[data-theme="neo"] .hero-kicker::before { background: #111; }
+html[data-theme="neo"] .hero-meta, html[data-theme="neo"] .hero p { color: #111; opacity: 1; }
+html[data-theme="neo"] .hero-art {
+  border: 6px solid #111;
+  border-radius: 0;
+  box-shadow: 14px 14px 0 #111;
+}
+html[data-theme="neo"] .hero-dots span { background: #111; border-radius: 0; }
+html[data-theme="neo"] .hero-dots i { background: #ff2d55; }
+html[data-theme="neo"] .rows { background: #fff5e8; }
+html[data-theme="neo"] .row {
+  background: #fff5e8;
+}
+html[data-theme="neo"] .row::before,
+html[data-theme="neo"] .row:first-child::before { display: none; }
+html[data-theme="neo"] .row:first-child { background: #fff5e8; }
+html[data-theme="neo"] .row h3 {
+  color: #111;
+  border-left: 10px solid #ff2d55;
+  padding-left: 16px;
+  text-transform: uppercase;
+}
+html[data-theme="neo"] .row h3 .count { color: #333; }
+html[data-theme="neo"] .card {
+  border: 5px solid #111;
+  border-radius: 0;
+  box-shadow: 8px 8px 0 #111;
+  background: #00d2ff;
+}
+html[data-theme="neo"] .card.poster { background: #7cff6b; }
+html[data-theme="neo"] .card.chip { background: #ffea00; }
+html[data-theme="neo"] .card:focus {
+  transform: translate(-4px, -4px) scale(1.04);
+  box-shadow: 14px 14px 0 #111, 0 0 0 4px #ff2d55;
+  z-index: 6;
+}
+html[data-theme="neo"] .card .title {
+  background: #111; color: #ffea00;
+  padding: 14px 12px;
+}
+html[data-theme="neo"] .card .title .sub { color: #fff; }
+html[data-theme="neo"] .card .prog { background: #111; height: 10px; }
+html[data-theme="neo"] .card .prog > i { background: #ff2d55; }
+html[data-theme="neo"] .login-card,
+html[data-theme="neo"] .picker-panel {
+  background: #ffea00; color: #111;
+  border: 6px solid #111;
+  border-radius: 0;
+  box-shadow: 16px 16px 0 #111;
+}
+html[data-theme="neo"] .picker-title,
+html[data-theme="neo"] .login-brand h1 { color: #111; }
+html[data-theme="neo"] .tab { border: 4px solid #111; border-radius: 0; background: #fff; color: #111; }
+html[data-theme="neo"] .tab.active { background: #ff2d55; color: #fff; }
+html[data-theme="neo"] .tab:focus { box-shadow: 5px 5px 0 #111; }
+html[data-theme="neo"] .btn.primary { background: #ff2d55; border: 4px solid #111; border-radius: 0; box-shadow: 6px 6px 0 #111; }
+html[data-theme="neo"] .btn:focus { box-shadow: 8px 8px 0 #111; }
+html[data-theme="neo"] .form input { border: 4px solid #111; border-radius: 0; background: #fff; color: #111; }
+html[data-theme="neo"] .d-item {
+  background: #fff; color: #111;
+  border: 4px solid #111; border-radius: 0;
+  box-shadow: 5px 5px 0 #111;
+}
+html[data-theme="neo"] .d-item:focus {
+  background: #ff2d55; color: #fff;
+  box-shadow: 8px 8px 0 #111;
+}
+html[data-theme="neo"] .d-item.primary { background: #ff2d55; color: #fff; }
+html[data-theme="neo"] #player .pbtn {
+  background: #ffea00; color: #111;
+  border: 4px solid #111; border-radius: 0;
+  box-shadow: 5px 5px 0 #111;
+}
+html[data-theme="neo"] #player .pbtn:focus {
+  background: #ff2d55; color: #fff;
+  box-shadow: 8px 8px 0 #111;
+}
+html[data-theme="neo"] #player .pbtn:focus svg { fill: #fff; }
+html[data-theme="neo"] #player .pbtn svg { fill: #111; }
+html[data-theme="neo"] #player .upbtn {
+  background: #ffea00; color: #111;
+  border: 4px solid #111; border-radius: 0;
+  box-shadow: 5px 5px 0 #111;
+}
+html[data-theme="neo"] #player .upbtn:focus {
+  background: #111; color: #ffea00;
+  box-shadow: 8px 8px 0 #ff2d55;
+}
+html[data-theme="neo"] .empty { background: #fff5e8; color: #111; }
+html[data-theme="neo"] #theme-btn { background: #fff; border: 4px solid #111; color: #111; border-radius: 0; }
+
+/* ============================================================
+   BENTO GRID — rounded tiles of varied sizes, hub layout on home
+   ============================================================ */
+html[data-theme="bento"] {
+  --theme-name: bento;
+  --ink: #0e0e14;
+  --panel: #1c1c26;
+  --panel-hi: #2a2a38;
+  --panel-radius: 28px;
+  --card-radius: 24px;
+  --focus-ring: 0 0 0 5px #fff, 0 0 0 10px var(--accent);
+}
+html[data-theme="bento"] body {
+  background: #0e0e14;
+}
+html[data-theme="bento"] .topbar {
+  background: rgba(14, 14, 20, 0.92);
+  border-bottom: none;
+}
+html[data-theme="bento"] .navbtn {
+  border-radius: 18px;
+  padding: 12px 22px;
+}
+html[data-theme="bento"] .navbtn.active {
+  background: var(--panel-hi);
+  box-shadow: none;
+  border-radius: 18px;
+}
+html[data-theme="bento"] .navbtn:focus,
+html[data-theme="bento"] .navbtn.active:focus {
+  background: #fff; color: #000; border-radius: 18px;
+  box-shadow: var(--focus-ring);
+}
+/* hero as large rounded tile */
+html[data-theme="bento"] .hero {
+  top: 140px;
+  left: var(--gutter);
+  right: auto;
+  width: 1120px;
+  height: 460px;
+  border-radius: 32px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+html[data-theme="bento"] .hero-slide::after {
+  background: linear-gradient(to top, rgba(14,14,20,0.95) 0%, transparent 55%),
+              linear-gradient(to right, rgba(14,14,20,0.7) 0%, transparent 60%);
+}
+html[data-theme="bento"] .hero .hero-content { bottom: 36px; left: 36px; max-width: 700px; }
+html[data-theme="bento"] .hero h2 { font-size: 72px; }
+html[data-theme="bento"] .hero-art { top: 40px; right: 36px; max-height: 300px; border-radius: 20px; }
+html[data-theme="bento"] .rows {
+  padding-top: 140px;
+  padding-left: 1180px; /* leave room for hero tile on the left */
+  padding-right: var(--gutter);
+  box-sizing: border-box;
+}
+html[data-theme="bento"] .row {
+  background: transparent;
+  padding-left: 0;
+  padding-right: 0;
+  margin-bottom: 18px;
+}
+html[data-theme="bento"] .row::before,
+html[data-theme="bento"] .row:first-child::before { display: none; }
+html[data-theme="bento"] .row:first-child { background: transparent; padding-top: 0; }
+html[data-theme="bento"] .row h3 {
+  font-size: 28px;
+  margin-bottom: 4px;
+  letter-spacing: 0.04em;
+}
+html[data-theme="bento"] .row-items {
+  margin: 0;
+  padding: 10px 0 16px;
+  flex-wrap: wrap;
+}
+/* varied tile sizes — bento feel, still one-row focus lines via offsetTop grouping */
+html[data-theme="bento"] .row-items .card {
+  border-radius: var(--card-radius);
+  margin-right: 14px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+html[data-theme="bento"] .row-items .card:nth-child(1) { flex-basis: 340px; height: 200px; }
+html[data-theme="bento"] .row-items .card:nth-child(2) { flex-basis: 220px; height: 200px; }
+html[data-theme="bento"] .row-items .card:nth-child(3) { flex-basis: 160px; height: 200px; }
+html[data-theme="bento"] .row-items .card.poster:nth-child(1) { flex-basis: 180px; height: 270px; }
+html[data-theme="bento"] .row-items .card.poster:nth-child(2) { flex-basis: 180px; height: 270px; }
+html[data-theme="bento"] .row-items .card.poster:nth-child(3) { flex-basis: 140px; height: 210px; align-self: flex-end; }
+html[data-theme="bento"] .row-items .card.chip { flex-basis: 200px; height: 96px; border-radius: 20px; }
+html[data-theme="bento"] .card:focus {
+  transform: scale(1.06);
+  box-shadow: var(--focus-ring), 0 24px 48px rgba(0,0,0,0.6);
+}
+/* bento hub tiles (section shortcuts) */
+html[data-theme="bento"] .card.bento-tile {
+  flex-basis: 280px !important;
+  height: 160px !important;
+  border-radius: 28px;
+  background: linear-gradient(145deg, var(--panel-hi), var(--panel));
+  display: flex; align-items: flex-end;
+}
+html[data-theme="bento"] .card.bento-tile.bento-lg {
+  flex-basis: 420px !important;
+  height: 220px !important;
+}
+html[data-theme="bento"] .card.bento-tile .title {
+  position: static; padding: 22px 24px;
+  background: none; font: 900 36px/1.1 var(--display);
+  text-transform: uppercase;
+}
+html[data-theme="bento"] .card.bento-tile.live { background: linear-gradient(145deg, #3a1020, #1a0a10); }
+html[data-theme="bento"] .card.bento-tile.movies { background: linear-gradient(145deg, #1a2040, #0e1228); }
+html[data-theme="bento"] .card.bento-tile.series { background: linear-gradient(145deg, #102a20, #0a1812); }
+html[data-theme="bento"] .card.bento-tile.dl { background: linear-gradient(145deg, #2a1a10, #18100a); }
+html[data-theme="bento"] .card.bento-tile.recent { background: linear-gradient(145deg, #2a1040, #140a20); }
+html[data-theme="bento"] .login-card,
+html[data-theme="bento"] .picker-panel {
+  border-radius: 28px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+html[data-theme="bento"] #player .pbtn { border-radius: 22px; }
+html[data-theme="bento"] #player .pbtn:focus { box-shadow: var(--focus-ring); }
+
+/* When not on a content shelf that needs the side hero, fall back to stacked bento */
+html[data-theme="bento"] #home.bento-stack .hero {
+  position: absolute;
+  top: 140px; left: var(--gutter); right: var(--gutter); width: auto; height: 360px;
+}
+html[data-theme="bento"] #home.bento-stack .rows {
+  padding-left: var(--gutter);
+  padding-top: 520px;
+}
+
+/* ============================================================
+   SWISS STYLE — strict grid, grotesk, red/black/white, flush-left
+   ============================================================ */
+html[data-theme="swiss"] {
+  --theme-name: swiss;
+  --ink: #ffffff;
+  --panel: #f2f2f2;
+  --panel-hi: #e8e8e8;
+  --text: #111;
+  --text-2: #222;
+  --text-3: #555;
+  --accent: #e30613;
+  --hot: #e30613;
+  --display: Helvetica, "Helvetica Neue", Arial, "LG Smart UI", sans-serif;
+  --ui: Helvetica, "Helvetica Neue", Arial, "LG Smart UI", sans-serif;
+  --gutter: 80px;
+  --ring: 0 0 0 4px #e30613;
+  --focus-ring: 0 0 0 4px #fff, 0 0 0 8px #e30613;
+  --panel-radius: 0;
+  --card-radius: 0;
+}
+html[data-theme="swiss"] body {
+  background: #fff;
+  color: #111;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+html[data-theme="swiss"] .topbar {
+  background: #fff;
+  border-bottom: 2px solid #111;
+  height: 112px;
+}
+html[data-theme="swiss"] .logo {
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 36px;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  color: #111;
+}
+html[data-theme="swiss"] .logo b { color: #e30613; font-weight: 700; }
+html[data-theme="swiss"] .navbtn {
+  color: #111;
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 500;
+  font-size: 22px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-radius: 0;
+  padding: 10px 18px;
+  border-bottom: 3px solid transparent;
+}
+html[data-theme="swiss"] .navbtn.active {
+  background: none; color: #e30613;
+  box-shadow: none;
+  border-bottom-color: #e30613;
+}
+html[data-theme="swiss"] .navbtn:focus,
+html[data-theme="swiss"] .navbtn.active:focus {
+  background: #e30613; color: #fff;
+  border-radius: 0; box-shadow: none;
+}
+html[data-theme="swiss"] .hint, html[data-theme="swiss"] .clock { color: #555; }
+html[data-theme="swiss"] .hero {
+  background: #fff;
+  border-bottom: 2px solid #111;
+}
+html[data-theme="swiss"] .hero-bg { filter: grayscale(1) contrast(1.1) brightness(0.7); }
+html[data-theme="swiss"] .hero-slide::after {
+  background: linear-gradient(to top, #fff 0%, rgba(255,255,255,0.85) 18%, transparent 50%),
+              linear-gradient(to right, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.4) 40%, transparent 65%);
+}
+html[data-theme="swiss"] .hero-content { left: var(--gutter); }
+html[data-theme="swiss"] .hero-kicker {
+  color: #e30613;
+  font-family: Helvetica, Arial, sans-serif;
+  letter-spacing: 0.22em;
+  font-weight: 700;
+}
+html[data-theme="swiss"] .hero-kicker::before { background: #e30613; width: 32px; }
+html[data-theme="swiss"] .hero h2 {
+  font-family: Helvetica, "Helvetica Neue", Arial, sans-serif;
+  font-weight: 700;
+  font-size: 96px;
+  letter-spacing: -0.03em;
+  text-transform: none;
+  color: #111;
+  text-shadow: none;
+}
+html[data-theme="swiss"] .hero-meta, html[data-theme="swiss"] .hero p {
+  color: #222; opacity: 1;
+  font-family: Helvetica, Arial, sans-serif;
+}
+html[data-theme="swiss"] .hero-art {
+  border-radius: 0;
+  border: 2px solid #111;
+  box-shadow: none;
+}
+html[data-theme="swiss"] .hero-dots span { border-radius: 0; background: #ccc; }
+html[data-theme="swiss"] .hero-dots i { background: #e30613; }
+html[data-theme="swiss"] .rows { background: #fff; }
+html[data-theme="swiss"] .row {
+  background: #fff;
+  border-top: 1px solid #111;
+  padding-top: 18px;
+}
+html[data-theme="swiss"] .row::before,
+html[data-theme="swiss"] .row:first-child::before { display: none; }
+html[data-theme="swiss"] .row:first-child {
+  background: #fff;
+  border-top: 2px solid #111;
+  padding-top: 24px;
+}
+html[data-theme="swiss"] .row h3 {
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 28px;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: #111;
+}
+html[data-theme="swiss"] .row h3 .count { color: #888; font-family: Helvetica, Arial, sans-serif; }
+html[data-theme="swiss"] .card {
+  border-radius: 0;
+  border: 2px solid #111;
+  box-shadow: none;
+  background: #f2f2f2;
+}
+html[data-theme="swiss"] .card:focus {
+  transform: none;
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+html[data-theme="swiss"] .card .title {
+  background: #111; color: #fff;
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 500;
+  padding: 14px 12px;
+}
+html[data-theme="swiss"] .card .title .sub { color: #ccc; }
+html[data-theme="swiss"] .card .prog { height: 4px; background: #ddd; }
+html[data-theme="swiss"] .card .prog > i { background: #e30613; }
+html[data-theme="swiss"] .login-card,
+html[data-theme="swiss"] .picker-panel {
+  background: #fff; color: #111;
+  border: 2px solid #111;
+  border-radius: 0;
+  box-shadow: none;
+}
+html[data-theme="swiss"] .picker-title {
+  font-family: Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: -0.02em;
+  color: #111;
+}
+html[data-theme="swiss"] .picker-sub { color: #555; }
+html[data-theme="swiss"] .tab {
+  border: 2px solid #111; border-radius: 0;
+  background: #fff; color: #111;
+}
+html[data-theme="swiss"] .tab.active { background: #e30613; color: #fff; border-color: #e30613; }
+html[data-theme="swiss"] .btn.primary {
+  background: #e30613; border-radius: 0; border: 2px solid #111;
+}
+html[data-theme="swiss"] .form input {
+  border: 2px solid #111; border-radius: 0; background: #fff; color: #111;
+}
+html[data-theme="swiss"] .d-item {
+  background: #f2f2f2; color: #111;
+  border: 2px solid #111; border-radius: 0;
+}
+html[data-theme="swiss"] .d-item:focus {
+  background: #e30613; color: #fff;
+  box-shadow: none;
+}
+html[data-theme="swiss"] .d-item.primary { background: #e30613; color: #fff; }
+html[data-theme="swiss"] #player .pbtn {
+  background: #fff; border: 2px solid #111; border-radius: 0;
+}
+html[data-theme="swiss"] #player .pbtn svg { fill: #111; }
+html[data-theme="swiss"] #player .pbtn:focus {
+  background: #e30613; border-color: #e30613;
+  box-shadow: 0 0 0 4px #fff, 0 0 0 8px #111;
+}
+html[data-theme="swiss"] #player .pbtn:focus svg { fill: #fff; }
+html[data-theme="swiss"] .empty { background: #fff; color: #555; }
+html[data-theme="swiss"] #login {
+  background: #fff;
+}
+html[data-theme="swiss"] .login-brand h1 { color: #111; }
+html[data-theme="swiss"] #theme-btn {
+  background: #fff; border: 2px solid #111; color: #111; border-radius: 0;
+}
+
+/* Arabic: keep RTL chrome; theme colours still apply */
+html[lang="ar"][data-theme="neo"] .row h3 { border-left: none; border-right: 10px solid #ff2d55; padding-left: 0; padding-right: 16px; }
+html[lang="ar"][data-theme="bento"] .rows { padding-left: var(--gutter); padding-right: 1180px; }
+html[lang="ar"][data-theme="bento"] .hero { left: auto; right: var(--gutter); }
+html[lang="ar"][data-theme="bento"] #home.bento-stack .rows { padding-right: var(--gutter); }
+
+/* ============================================================
+   SKEUOMORPHISM — realistic textures via CSS gradients only
+   Brushed metal top bar, leather/linen panels, glossy bevels,
+   stitched edges, embossed type, pressed focus. Static & cheap.
+   ============================================================ */
+html[data-theme="skeuo"] {
+  --theme-name: skeuo;
+  --ink: #2a2218;
+  --panel: #3d3226;
+  --panel-hi: #4a3e30;
+  --text: #f3e6d0;
+  --text-2: #d9c7a8;
+  --text-3: #a89070;
+  --accent: #c45c26;
+  --hot: #e07830;
+  --panel-radius: 14px;
+  --card-radius: 14px;
+  --focus-ring: inset 0 3px 6px rgba(0,0,0,0.55), inset 0 -1px 0 rgba(255,220,160,0.35), 0 0 0 4px #c45c26, 0 0 0 7px #f3e6d0;
+  --leather: #3a2e22;
+  --metal-hi: #c8c2b4;
+  --metal-mid: #8a8478;
+  --metal-lo: #4a463e;
+  --stitch: repeating-linear-gradient(90deg, transparent 0 10px, rgba(243,230,208,0.35) 10px 12px);
+}
+html[data-theme="skeuo"] body {
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(196,92,38,0.12), transparent 50%),
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.03) 0 2px, transparent 2px 4px),
+    repeating-linear-gradient(90deg, rgba(255,220,160,0.03) 0 2px, transparent 2px 5px),
+    linear-gradient(180deg, #2f261c, #1e1812);
+  color: var(--text);
+}
+/* brushed metal top bar */
+html[data-theme="skeuo"] .topbar {
+  height: 124px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 42%, rgba(0,0,0,0.25) 100%),
+    repeating-linear-gradient(90deg,
+      #b8b2a4 0px, #d0cbbd 2px, #9a9488 4px, #c4beB0 6px, #8e887c 8px, #b8b2a4 10px);
+  border-bottom: 3px solid #2a261e;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.55),
+    inset 0 -2px 0 rgba(0,0,0,0.35),
+    0 8px 18px rgba(0,0,0,0.45);
+}
+html[data-theme="skeuo"] .logo { color: #2a2218; text-shadow: 0 1px 0 rgba(255,255,255,0.35); }
+html[data-theme="skeuo"] .logo b { color: #8b3a18; }
+html[data-theme="skeuo"] .navbtn {
+  color: #2a2218;
+  font-weight: 800;
+  border-radius: 12px;
+  border: 1px solid rgba(40,30,20,0.35);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0.08) 48%, rgba(0,0,0,0.12));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.65),
+    inset 0 -1px 0 rgba(0,0,0,0.2),
+    0 2px 4px rgba(0,0,0,0.25);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+}
+html[data-theme="skeuo"] .navbtn.active {
+  color: #f3e6d0;
+  background:
+    linear-gradient(180deg, #d9783a, #a04820 55%, #7a3414);
+  border-color: #5a2810;
+  box-shadow:
+    inset 0 1px 0 rgba(255,220,180,0.45),
+    inset 0 -2px 0 rgba(0,0,0,0.35),
+    0 2px 6px rgba(0,0,0,0.35);
+}
+html[data-theme="skeuo"] .navbtn:focus,
+html[data-theme="skeuo"] .navbtn.active:focus {
+  color: #1a140e;
+  background:
+    linear-gradient(180deg, #fff0d0, #e0c090 50%, #b89050);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 3px 8px rgba(0,0,0,0.45),
+    inset 0 1px 0 rgba(255,255,255,0.2),
+    0 0 0 3px #c45c26,
+    0 0 0 6px #f3e6d0;
+  transform: translateY(1px);
+}
+html[data-theme="skeuo"] .hint, html[data-theme="skeuo"] .clock { color: #2a2218; text-shadow: 0 1px 0 rgba(255,255,255,0.25); }
+html[data-theme="skeuo"] #theme-btn {
+  background: linear-gradient(180deg, #efe6d4, #c8b89a);
+  border: 1px solid #5a4a34;
+  color: #2a2218;
+}
+
+/* leather / linen hero + panels */
+html[data-theme="skeuo"] .hero {
+  background:
+    radial-gradient(circle at 20% 30%, rgba(196,92,38,0.18), transparent 45%),
+    repeating-linear-gradient(45deg, rgba(255,220,160,0.03) 0 3px, transparent 3px 7px),
+    linear-gradient(180deg, #3a2e22, #241c14);
+}
+html[data-theme="skeuo"] .hero-bg { filter: saturate(0.85) brightness(0.55) contrast(1.05); }
+html[data-theme="skeuo"] .hero-slide::after {
+  background:
+    linear-gradient(to top, #2a2218 0%, rgba(42,34,24,0.75) 22%, transparent 58%),
+    linear-gradient(to right, rgba(42,34,24,0.9) 0%, rgba(42,34,24,0.45) 40%, transparent 70%);
+}
+html[data-theme="skeuo"] .hero-content {
+  padding: 26px 30px;
+  background:
+    linear-gradient(180deg, rgba(70,56,40,0.92), rgba(40,32,24,0.95));
+  border: 2px solid #1a140e;
+  border-radius: 16px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,220,160,0.25),
+    inset 0 0 0 1px rgba(255,220,160,0.08),
+    0 18px 40px rgba(0,0,0,0.55);
+  /* stitched edge via outline simulation */
+  outline: 1px dashed rgba(243,230,208,0.28);
+  outline-offset: -8px;
+}
+html[data-theme="skeuo"] .hero h2 {
+  color: #f3e6d0;
+  text-shadow: 0 2px 0 #1a140e, 0 3px 8px rgba(0,0,0,0.6);
+}
+html[data-theme="skeuo"] .hero-kicker { color: #e07830; text-shadow: 0 1px 0 #1a140e; }
+html[data-theme="skeuo"] .hero-art {
+  border-radius: 12px;
+  border: 3px solid #1a140e;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    0 16px 36px rgba(0,0,0,0.6),
+    0 0 0 1px #6a5640;
+}
+html[data-theme="skeuo"] .hero-dots span { background: rgba(243,230,208,0.25); border-radius: 3px; }
+html[data-theme="skeuo"] .hero-dots i { background: #c45c26; }
+
+html[data-theme="skeuo"] .row {
+  background: transparent;
+}
+html[data-theme="skeuo"] .row::before,
+html[data-theme="skeuo"] .row:first-child::before {
+  background: linear-gradient(to bottom, rgba(42,34,24,0), rgba(42,34,24,0.85));
+}
+html[data-theme="skeuo"] .row:first-child { background: transparent; }
+html[data-theme="skeuo"] .row h3 {
+  color: #f3e6d0;
+  text-shadow: 0 2px 0 #1a140e;
+  letter-spacing: 0.04em;
+}
+html[data-theme="skeuo"] .row h3 .count { color: #a89070; }
+
+/* glossy beveled cards */
+html[data-theme="skeuo"] .card {
+  border-radius: 14px;
+  border: 2px solid #1a140e;
+  background:
+    linear-gradient(180deg, rgba(255,220,160,0.12), transparent 40%),
+    linear-gradient(160deg, #4a3c2e, #2a2218);
+  box-shadow:
+    inset 0 1px 0 rgba(255,220,160,0.28),
+    inset 0 -2px 0 rgba(0,0,0,0.35),
+    0 10px 22px rgba(0,0,0,0.45);
+}
+html[data-theme="skeuo"] .card.chip {
+  background:
+    linear-gradient(180deg, #5a4a36, #3a2e22 55%, #2a2218);
+}
+html[data-theme="skeuo"] .card:focus {
+  transform: translateY(2px) scale(1.04);
+  box-shadow:
+    inset 0 4px 10px rgba(0,0,0,0.55),
+    inset 0 -1px 0 rgba(255,220,160,0.2),
+    0 0 0 4px #c45c26,
+    0 0 0 7px #f3e6d0;
+}
+html[data-theme="skeuo"] .card .title {
+  background: linear-gradient(to top, rgba(20,14,10,0.95) 20%, transparent);
+  color: #f3e6d0;
+  text-shadow: 0 1px 2px #000;
+}
+html[data-theme="skeuo"] .card .prog { background: rgba(0,0,0,0.45); height: 8px; }
+html[data-theme="skeuo"] .card .prog > i {
+  background: linear-gradient(180deg, #e89050, #c45c26 60%, #8a3a18);
+  box-shadow: inset 0 1px 0 rgba(255,220,160,0.4);
+}
+
+/* stitched leather panels: login, picker, dialogs */
+html[data-theme="skeuo"] .login-card,
+html[data-theme="skeuo"] .picker-panel,
+html[data-theme="skeuo"] .card-box,
+html[data-theme="skeuo"] .pausecard,
+html[data-theme="skeuo"] .banner,
+html[data-theme="skeuo"] .toast {
+  background:
+    linear-gradient(180deg, rgba(255,220,160,0.08), transparent 35%),
+    linear-gradient(180deg, #4a3c2e, #2e241a);
+  border: 3px solid #1a140e;
+  border-radius: 18px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,220,160,0.28),
+    inset 0 0 0 1px rgba(255,220,160,0.06),
+    0 24px 50px rgba(0,0,0,0.55);
+  outline: 1px dashed rgba(243,230,208,0.3);
+  outline-offset: -10px;
+  color: #f3e6d0;
+}
+html[data-theme="skeuo"] .picker-title,
+html[data-theme="skeuo"] .login-brand h1 {
+  color: #f3e6d0;
+  text-shadow: 0 2px 0 #1a140e, 0 3px 6px rgba(0,0,0,0.5);
+}
+html[data-theme="skeuo"] #login {
+  background:
+    radial-gradient(900px 600px at 20% 30%, rgba(196,92,38,0.2), transparent 60%),
+    linear-gradient(180deg, #3a2e22, #1e1812);
+}
+html[data-theme="skeuo"] .tab {
+  border-radius: 10px;
+  border: 2px solid #1a140e;
+  background: linear-gradient(180deg, #6a5844, #3a2e22);
+  color: #f3e6d0;
+  box-shadow: inset 0 1px 0 rgba(255,220,160,0.25), 0 2px 4px rgba(0,0,0,0.35);
+}
+html[data-theme="skeuo"] .tab.active {
+  background: linear-gradient(180deg, #d9783a, #a04820);
+  color: #fff;
+}
+html[data-theme="skeuo"] .tab:focus {
+  box-shadow: inset 0 3px 6px rgba(0,0,0,0.45), 0 0 0 3px #c45c26, 0 0 0 6px #f3e6d0;
+}
+html[data-theme="skeuo"] .form input {
+  background: #1a140e;
+  border: 2px solid #5a4a34;
+  border-radius: 10px;
+  color: #f3e6d0;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.55);
+}
+html[data-theme="skeuo"] .form input:focus {
+  border-color: #c45c26;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.55), 0 0 0 3px rgba(196,92,38,0.45);
+}
+html[data-theme="skeuo"] .btn.primary {
+  background: linear-gradient(180deg, #e89050, #c45c26 55%, #8a3a18);
+  border: 2px solid #1a140e;
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255,220,160,0.45), 0 4px 10px rgba(0,0,0,0.4);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+html[data-theme="skeuo"] .btn:focus {
+  box-shadow: inset 0 3px 8px rgba(0,0,0,0.5), 0 0 0 3px #c45c26, 0 0 0 6px #f3e6d0;
+  transform: translateY(1px);
+}
+html[data-theme="skeuo"] .d-item {
+  background: linear-gradient(180deg, #5a4a36, #3a2e22);
+  border: 2px solid #1a140e;
+  border-radius: 12px;
+  color: #f3e6d0;
+  box-shadow: inset 0 1px 0 rgba(255,220,160,0.22), 0 3px 6px rgba(0,0,0,0.35);
+}
+html[data-theme="skeuo"] .d-item:focus {
+  background: linear-gradient(180deg, #fff0d0, #e0c090 50%, #b89050);
+  color: #1a140e;
+  box-shadow: inset 0 3px 8px rgba(0,0,0,0.45), 0 0 0 3px #c45c26, 0 0 0 6px #f3e6d0;
+}
+html[data-theme="skeuo"] .d-item.primary {
+  background: linear-gradient(180deg, #e89050, #c45c26 55%, #8a3a18);
+  color: #fff;
+}
+html[data-theme="skeuo"] .d-item:focus .d-sub { color: #5a4a34; }
+
+/* player: glossy round buttons with bevel */
+html[data-theme="skeuo"] #player .pbtn {
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255,255,255,0.45), transparent 45%),
+    linear-gradient(180deg, #6a5844, #2a2218);
+  border: 2px solid #1a140e;
+  box-shadow:
+    inset 0 1px 0 rgba(255,220,160,0.35),
+    inset 0 -2px 0 rgba(0,0,0,0.4),
+    0 6px 14px rgba(0,0,0,0.45);
+}
+html[data-theme="skeuo"] #player .pbtn svg { fill: #f3e6d0; }
+html[data-theme="skeuo"] #player .pbtn:focus {
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255,255,255,0.35), transparent 45%),
+    linear-gradient(180deg, #e89050, #8a3a18);
+  box-shadow:
+    inset 0 4px 10px rgba(0,0,0,0.5),
+    0 0 0 4px #c45c26,
+    0 0 0 7px #f3e6d0;
+  transform: translateY(2px);
+}
+html[data-theme="skeuo"] #player .pbtn:focus svg { fill: #fff; }
+html[data-theme="skeuo"] #player .upbtn {
+  background: linear-gradient(180deg, #5a4a36, #3a2e22);
+  border: 2px solid #1a140e;
+  border-radius: 14px;
+  color: #f3e6d0;
+  box-shadow: inset 0 1px 0 rgba(255,220,160,0.25), 0 4px 8px rgba(0,0,0,0.4);
+}
+html[data-theme="skeuo"] #player .upbtn:focus {
+  background: linear-gradient(180deg, #fff0d0, #b89050);
+  color: #1a140e;
+  box-shadow: inset 0 3px 8px rgba(0,0,0,0.45), 0 0 0 3px #c45c26, 0 0 0 6px #f3e6d0;
+}
+html[data-theme="skeuo"] .drawer {
+  background: linear-gradient(to left, rgba(42,34,24,0.96) 82%, rgba(42,34,24,0));
+  border-left: 2px solid #1a140e;
+}
+html[data-theme="skeuo"] .empty { background: transparent; color: #a89070; }
+html[data-theme="skeuo"] .swatch-skeuo {
+  background:
+    linear-gradient(180deg, #c8c2b4, #8a8478 40%, #3a2e22 40%);
+}

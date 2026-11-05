@@ -5,7 +5,8 @@
   <meta name="referrer" content="no-referrer" />
   <meta name="viewport" content="width=1920, height=1080, initial-scale=1" />
   <title>Kayan IPTV</title>
-  <link rel="stylesheet" href="css/styles.css?v=20261106030000" />
+  <link rel="stylesheet" href="css/styles.css?v=20261106040000" />
+  <link rel="stylesheet" href="css/themes.css?v=20261106040000" />
   <script>
     // The fonts arrive together: the page stays clear until the display, UI and Arabic faces are ready
     // (or 2.5 s have passed), so text is never drawn in a stand-in font and then swapped.
@@ -58,6 +59,7 @@
     </div>
 
     <div id="home" class="screen hidden">
+      <div id="frost" aria-hidden="true"></div>
       <header class="topbar">
         <span class="logo">Kayan <b>IPTV</b></span>
         <nav>
@@ -72,6 +74,7 @@
         </nav>
         <span class="hint"><i class="dot red"></i><span data-i18n="Search">Search</span><i class="dot green"></i><span data-i18n="Favorites">Favorites</span><i class="dot"></i><span data-i18n="Add favorite">Add favorite</span><i class="dot blue"></i><span data-i18n="Next section">Next section</span></span>
         <span id="clock" class="clock" aria-hidden="true"></span>
+        <button id="theme-btn" class="navbtn" aria-label="Theme" data-i18n-aria="Theme"><i class="theme-dot" aria-hidden="true"></i><span class="theme-name" data-i18n="Theme">Theme</span></button>
         <button id="lang" class="navbtn langbtn" aria-label="Language" data-i18n-aria="Language"></button>
         <button id="logout" class="navbtn" data-i18n="Logout">Logout</button>
       </header>
@@ -198,6 +201,13 @@
       <div id="drawer" class="drawer hide"><div id="drawer-body"></div></div>
     </div>
   </div>
+  <div id="theme-picker" class="picker hidden" role="dialog" aria-modal="true">
+    <div class="picker-panel">
+      <div class="picker-title" data-i18n="Theme">Theme</div>
+      <div class="picker-sub" data-i18n="Pick a look. Focus previews it live.">Pick a look. Focus previews it live.</div>
+      <div id="theme-picker-list" class="theme-picker-list"></div>
+    </div>
+  </div>
   <div id="exitbox" class="picker hidden" role="dialog" aria-modal="true">
     <div class="picker-panel">
       <div class="picker-title" data-i18n="Exit?">Exit?</div>
@@ -208,14 +218,14 @@
       </div>
     </div>
   </div>
-  <script src="js/i18n.js?v=20261106030000"></script>
-  <script src="js/lang-ar.js?v=20261106030000"></script>
-  <script src="js/keys.js?v=20261106030000"></script>
-  <script src="js/api.js?v=20261106030000"></script>
-  <script src="js/ui.js?v=20261106030000"></script>
-  <script src="js/player.js?v=20261106030000"></script>
-  <script src="js/settings.js?v=20261106030000"></script>
-  <script src="js/downloads.js?v=20261106030000"></script>
-  <script src="js/app.js?v=20261106030000"></script>
+  <script src="js/i18n.js?v=20261106040000"></script>
+  <script src="js/lang-ar.js?v=20261106040000"></script>
+  <script src="js/keys.js?v=20261106040000"></script>
+  <script src="js/api.js?v=20261106040000"></script>
+  <script src="js/ui.js?v=20261106040000"></script>
+  <script src="js/player.js?v=20261106040000"></script>
+  <script src="js/settings.js?v=20261106040000"></script>
+  <script src="js/downloads.js?v=20261106040000"></script>
+  <script src="js/app.js?v=20261106040000"></script>
 </body>
 </html>

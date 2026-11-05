@@ -364,6 +364,7 @@ const UI = (() => {
     slide.appendChild(box);
     slide._item = item;
     el.appendChild(slide);
+    if (window.Settings && Settings.syncFrost) Settings.syncFrost();
   }
 
   return { showScreen, renderRows, lazyImages, setHero, enrichHero, showSearch, clearHero, setMessage, safeUrl, $, $$ };

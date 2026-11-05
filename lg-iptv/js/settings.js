@@ -19,9 +19,19 @@ const Settings = (() => {
     pinOn: false,
     lockAdult: false,
     accent: 'red',
+    theme: 'default',
     showClock: true,
     hideEmptyCats: false
   };
+
+  const THEMES = [
+    { id: 'default', name: 'Default', blurb: 'Cinema marquee — current look' },
+    { id: 'glass', name: 'Glass', blurb: 'Frosted panels and soft light edges' },
+    { id: 'neo', name: 'Neo Brutalism', blurb: 'Thick borders, hard shadows, bold colour' },
+    { id: 'bento', name: 'Bento Grid', blurb: 'Rounded tiles of mixed sizes' },
+    { id: 'swiss', name: 'Swiss Style', blurb: 'Strict grid, red black white' },
+    { id: 'skeuo', name: 'Skeuomorphism', blurb: 'Metal, leather, glossy beveled controls' }
+  ];
 
   function get(key) {
     const v = API.pref('set_' + key);
@@ -77,11 +87,64 @@ const Settings = (() => {
     setCurrentProfileId(snap.id);
   }
 
+  function themeMeta(id) {
+    return THEMES.find(t => t.id === id) || THEMES[0];
+  }
+  function themeLabel(id) {
+    const m = themeMeta(id);
+    return tr(m.name);
+  }
+  function applyTheme(id) {
+    const t = themeMeta(id).id;
+    const root = document.documentElement;
+    root.setAttribute('data-theme', t);
+    // Feature-detect cheap backdrop-filter once; skip on weak GPUs via reduced-motion too
+    if (!root.classList.contains('can-backdrop') && !root.classList.contains('no-backdrop')) {
+      try {
+        const ok = CSS && CSS.supports && (CSS.supports('backdrop-filter: blur(4px)') || CSS.supports('-webkit-backdrop-filter: blur(4px)'));
+        const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        root.classList.add(ok && !reduce ? 'can-backdrop' : 'no-backdrop');
+      } catch (e) { root.classList.add('no-backdrop'); }
+    }
+    // Swiss / Neo own the accent; otherwise honour the Accent colour setting
+    const map = { red: '#e50914', blue: '#2b7cff', green: '#1db954', amber: '#f5a623', purple: '#a855f7' };
+    if (t === 'swiss') root.style.setProperty('--accent', '#e30613');
+    else if (t === 'neo') root.style.setProperty('--accent', '#ff2d55');
+    else if (t === 'skeuo') root.style.setProperty('--accent', '#c45c26');
+    else root.style.setProperty('--accent', map[get('accent')] || map.red);
+    const btn = document.getElementById('theme-btn');
+    if (btn) {
+      const label = themeLabel(t);
+      btn.setAttribute('data-theme-id', t);
+      btn.setAttribute('aria-label', tr('Theme') + ': ' + label);
+      const nameEl = btn.querySelector('.theme-name');
+      if (nameEl) nameEl.textContent = label;
+    }
+    // bento: stack hero when not on movies browse (set by App); default clear
+    const home = document.getElementById('home');
+    if (home && t !== 'bento') home.classList.remove('bento-stack');
+    // sync frost layer from current hero artwork if present
+    syncFrost();
+  }
+  function syncFrost() {
+    const frost = document.getElementById('frost');
+    if (!frost) return;
+    if (get('theme') !== 'glass') { frost.style.backgroundImage = ''; return; }
+    const bg = document.querySelector('.hero-slide:not(.leaving) .hero-bg');
+    if (bg) {
+      frost.style.backgroundImage = bg.style.backgroundImage || '';
+    }
+  }
+
   function apply(key, val) {
     if (key === 'accent') {
-      const map = { red: '#e50914', blue: '#2b7cff', green: '#1db954', amber: '#f5a623', purple: '#a855f7' };
-      document.documentElement.style.setProperty('--accent', map[val] || map.red);
+      const t = get('theme');
+      if (t !== 'swiss' && t !== 'neo' && t !== 'skeuo') {
+        const map = { red: '#e50914', blue: '#2b7cff', green: '#1db954', amber: '#f5a623', purple: '#a855f7' };
+        document.documentElement.style.setProperty('--accent', map[val] || map.red);
+      }
     }
+    if (key === 'theme') applyTheme(val);
     if (key === 'showClock') {
       const el = document.getElementById('clock');
       if (el) el.classList.toggle('hidden', !val);
@@ -225,6 +288,7 @@ const Settings = (() => {
 
     // 6. Appearance
     map.appear = [
+      item(tr('Theme'), themeLabel(get('theme')), 'theme'),
       item(tr('Language'), (window.I18n && I18n.lang === 'ar') ? 'العربية' : 'English', 'language'),
       item(tr('Accent colour'), tr(String(get('accent'))), 'accent'),
       item(tr('Clock'), onOff(get('showClock')), 'clock'),
@@ -279,11 +343,17 @@ const Settings = (() => {
 
   function toggle(key) { return set(key, !get(key)); }
 
+  function cycleTheme() {
+    const ids = THEMES.map(t => t.id);
+    return cycle('theme', ids);
+  }
+
   return {
-    VERSION, DEF, get, set, all, applyAll, build, cycle, toggle,
+    VERSION, DEF, THEMES, get, set, all, applyAll, build, cycle, toggle,
     exportBackup, importBackup, resetAll, clearCache,
     getProfiles, saveProfiles, rememberProfile, currentProfileId, setCurrentProfileId,
-    pinOk, catLocked, hlsBufferOpts
+    pinOk, catLocked, hlsBufferOpts,
+    themeMeta, themeLabel, applyTheme, syncFrost, cycleTheme
   };
 })();
 window.Settings = Settings;
