@@ -1,4 +1,4 @@
-# Lumio Player
+# Kayan IPTV
 
 An IPTV player for LG webOS TVs. It talks to any Xtream Codes provider (`player_api.php`) and plays live channels, films and series with a Netflix-style player.
 

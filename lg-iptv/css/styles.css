@@ -1,4 +1,4 @@
-/* Lumio Player — "cinema marquee": near-black ink, condensed black display type, one signal red.
+/* Kayan IPTV — "cinema marquee": near-black ink, condensed black display type, one signal red.
    Written for older webOS Chromium: no inset, no flex gap, no outline-radius reliance (focus is a box-shadow ring). */
 
 @font-face { font-family: "Marquee"; font-weight: 900; font-display: swap; src: url("../assets/fonts/display-900.woff2") format("woff2"); }
