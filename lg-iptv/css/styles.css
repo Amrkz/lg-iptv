@@ -180,6 +180,7 @@ nav .navbtn + .navbtn { margin-left: 8px; }
 .ov-bottom { position: absolute; bottom: 0; left: 0; right: 0; padding: 150px var(--gutter) 78px; background: linear-gradient(to top, rgba(0, 0, 0, 0.92) 32%, rgba(0, 0, 0, 0)); }
 .mini { position: absolute; left: var(--gutter); right: var(--gutter); bottom: 28px; z-index: 4; display: flex; align-items: center; height: 56px; color: #fff; font-size: 28px; font-weight: 700; text-shadow: 0 2px 8px #000; pointer-events: none; }
 .mini.hide { display: none; }
+.mini { opacity: 0.5; } /* idle progress: semitransparent so it stays out of the way */
 .mini-ico { width: 64px; font-size: 24px; letter-spacing: -2px; }
 .mini-t { width: 130px; font-variant-numeric: tabular-nums; }
 .mini-t:last-child { text-align: right; }
