@@ -30,7 +30,8 @@ const Settings = (() => {
     { id: 'neo', name: 'Neo Brutalism', blurb: 'Thick borders, hard shadows, bold colour' },
     { id: 'bento', name: 'Bento Grid', blurb: 'Rounded tiles of mixed sizes' },
     { id: 'swiss', name: 'Swiss Style', blurb: 'Strict grid, red black white' },
-    { id: 'skeuo', name: 'Skeuomorphism', blurb: 'Metal, leather, glossy beveled controls' }
+    { id: 'skeuo', name: 'Skeuomorphism', blurb: 'Metal, leather, glossy beveled controls' },
+    { id: 'clay', name: 'Claymorphism', blurb: 'Soft puffy pastels with gentle shadows' }
   ];
 
   function get(key) {
@@ -111,6 +112,7 @@ const Settings = (() => {
     if (t === 'swiss') root.style.setProperty('--accent', '#e30613');
     else if (t === 'neo') root.style.setProperty('--accent', '#ff2d55');
     else if (t === 'skeuo') root.style.setProperty('--accent', '#c45c26');
+    else if (t === 'clay') root.style.setProperty('--accent', '#7c9cff');
     else root.style.setProperty('--accent', map[get('accent')] || map.red);
     const btn = document.getElementById('theme-btn');
     if (btn) {
@@ -139,7 +141,7 @@ const Settings = (() => {
   function apply(key, val) {
     if (key === 'accent') {
       const t = get('theme');
-      if (t !== 'swiss' && t !== 'neo' && t !== 'skeuo') {
+      if (t !== 'swiss' && t !== 'neo' && t !== 'skeuo' && t !== 'clay') {
         const map = { red: '#e50914', blue: '#2b7cff', green: '#1db954', amber: '#f5a623', purple: '#a855f7' };
         document.documentElement.style.setProperty('--accent', map[val] || map.red);
       }

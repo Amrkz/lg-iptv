@@ -268,6 +268,8 @@ I18n.add('ar', {
   'Strict grid, red black white': 'شبكة صارمة، أحمر وأسود وأبيض',
   'Skeuomorphism': 'محاكاة الواقع',
   'Metal, leather, glossy beveled controls': 'معدن وجلد وأزرار لامعة مشطوفة',
+  'Claymorphism': 'كلايمورفيزم',
+  'Soft puffy pastels with gentle shadows': 'أسطح منفوخة ناعمة بظلال خفيفة',
   'Pick a look. Focus previews it live.': 'اختر مظهرًا. التركيز يعرضه مباشرة.',
   'Home': 'الرئيسية',
   'Appearance': 'المظهر',
