@@ -496,3 +496,6 @@ html[lang="ar"] .hero h2, html[lang="ar"] .hero p, html[lang="ar"] .hero-meta { 
 .confirm-actions { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
 .confirm-actions .d-item.primary { background: var(--accent); color: #fff; }
 #btn-dl.on { color: var(--accent); }
+
+.clock { font: 700 26px var(--ui); color: var(--text-2); letter-spacing: 0.06em; margin-inline-end: 18px; min-width: 5.5em; text-align: center; }
+.confirm-input { width: 100%; margin: 14px 0 8px; padding: 16px 18px; font-size: 28px; border-radius: 10px; border: 2px solid rgba(255,255,255,0.18); background: #111; color: #fff; }

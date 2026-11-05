@@ -572,6 +572,14 @@ const App = (() => {
   }
 
   function pick(item, kind, list) {
+    if (item._set) { handleSetting(item); return; }
+    if (item.cat && Settings.catLocked(item.cat.category_name || item.name)) {
+      promptValue(tr('Parental control'), tr('Enter PIN'), '', code => {
+        if (!Settings.pinOk(code)) { openConfirm(tr('Parental control'), tr('Wrong PIN'), [{ label: tr('OK'), primary: true }]); return; }
+        showCategory(currentKind, item.cat);
+      });
+      return;
+    }
     if (item._dlAction === 'season') { downloadSeason(item._seasonKey, item._seasonEps); return; }
     if (item._dlAction === 'pause' && item._job) { Downloads.pause(item._job.id).then(() => showDownloads(true)); return; }
     if (item._dlAction === 'resume' && item._job) { Downloads.resume(item._job.id).then(() => showDownloads(true)); return; }
@@ -633,6 +641,168 @@ const App = (() => {
     }).catch(e => {
       if (id === loadId) UI.setMessage(rows(), tr('Could not load episodes: {msg}', { msg: e && e.message ? e.message : e }));
     });
+  }
+
+  function promptValue(title, body, initial, onOk) {
+    UI.$('#confirm-title').textContent = title || '';
+    UI.$('#confirm-body').textContent = body || '';
+    const box = UI.$('#confirm-actions');
+    box.innerHTML = '';
+    const input = document.createElement('input');
+    input.className = 'confirm-input';
+    input.value = initial || '';
+    input.setAttribute('autocapitalize', 'off');
+    input.setAttribute('autocorrect', 'off');
+    input.setAttribute('spellcheck', 'false');
+    box.appendChild(input);
+    const ok = document.createElement('button');
+    ok.className = 'd-item primary';
+    ok.textContent = tr('OK');
+    ok.addEventListener('click', () => { closeConfirm(); if (onOk) onOk(input.value); });
+    const cancel = document.createElement('button');
+    cancel.className = 'd-item';
+    cancel.textContent = tr('Cancel');
+    cancel.addEventListener('click', () => closeConfirm());
+    box.appendChild(ok);
+    box.appendChild(cancel);
+    confirmReturn = document.activeElement;
+    confirmOpen = true;
+    UI.$('#confirm').classList.remove('hidden');
+    setTimeout(() => input.focus(), 50);
+  }
+
+  function handleSetting(item) {
+    if (!item || !item._set || item._set === 'noop' || item._set === 'storage-info') return;
+    const a = item._set;
+    const refresh = () => showSettings(true);
+    if (a === 'live-buffer') { Settings.cycle('liveBuffer', [30, 45, 60, 90, 120]); refresh(); return; }
+    if (a === 'vod-buffer') { Settings.cycle('vodBuffer', [15, 30, 45, 60]); refresh(); return; }
+    if (a === 'aspect') { Settings.cycle('aspect', ['fit', 'fill', 'zoom', 'stretch', '43']); refresh(); return; }
+    if (a === 'auto-next') { Settings.toggle('autoNext'); refresh(); return; }
+    if (a === 'resume') { Settings.toggle('resume'); refresh(); return; }
+    if (a === 'sub-bg') { Settings.toggle('subBg'); refresh(); return; }
+    if (a === 'sub-size') { Settings.cycle('subSize', ['', 'large', 'small']); refresh(); return; }
+    if (a === 'audio-lang') {
+      promptValue(tr('Preferred audio'), tr('Language code, for example en or ar. Leave blank for default.'), Settings.get('audioLang') || '', v => { Settings.set('audioLang', String(v || '').trim()); refresh(); });
+      return;
+    }
+    if (a === 'sub-lang') {
+      promptValue(tr('Preferred subtitles'), tr('Language code, for example en or ar. Leave blank for default.'), Settings.get('subLang') || '', v => { Settings.set('subLang', String(v || '').trim()); refresh(); });
+      return;
+    }
+    if (a === 'epg-url') {
+      promptValue(tr('EPG source URL'), tr('XMLTV URL, or blank to use the provider.'), Settings.get('epgUrl') || '', v => { Settings.set('epgUrl', String(v || '').trim()); refresh(); });
+      return;
+    }
+    if (a === 'epg-hours') { Settings.cycle('epgHours', [6, 12, 24, 48]); refresh(); return; }
+    if (a === 'epg-offset') { Settings.cycle('epgOffset', [-120, -60, -30, 0, 30, 60, 120]); refresh(); return; }
+    if (a === 'pin-on') {
+      if (!Settings.get('pin') && !Settings.get('pinOn')) {
+        promptValue(tr('Change PIN'), tr('Choose a 4-digit PIN.'), '', v => {
+          const pin = String(v || '').replace(/\D/g, '').slice(0, 4);
+          if (pin.length < 4) { openConfirm(tr('Parental control'), tr('PIN must be 4 digits.'), [{ label: tr('OK'), primary: true }]); return; }
+          Settings.set('pin', pin); Settings.set('pinOn', true); refresh();
+        });
+        return;
+      }
+      Settings.toggle('pinOn'); refresh(); return;
+    }
+    if (a === 'pin-set') {
+      promptValue(tr('Change PIN'), tr('Choose a 4-digit PIN.'), '', v => {
+        const pin = String(v || '').replace(/\D/g, '').slice(0, 4);
+        if (pin.length < 4) { openConfirm(tr('Parental control'), tr('PIN must be 4 digits.'), [{ label: tr('OK'), primary: true }]); return; }
+        Settings.set('pin', pin); refresh();
+      });
+      return;
+    }
+    if (a === 'lock-adult') { Settings.toggle('lockAdult'); refresh(); return; }
+    if (a === 'language') { const next = I18n.next(); I18n.set(next.id); return; }
+    if (a === 'accent') { Settings.cycle('accent', ['red', 'blue', 'green', 'amber', 'purple']); refresh(); return; }
+    if (a === 'clock') { Settings.toggle('showClock'); refresh(); return; }
+    if (a === 'hide-empty') { Settings.toggle('hideEmptyCats'); refresh(); return; }
+    if (a === 'open-dl') { openSection('dl', true); return; }
+    if (a === 'clear-cache') {
+      openConfirm(tr('Clear watch history'), tr('Remove Continue Watching, Recent, and watched lists? Downloads stay.'), [
+        { label: tr('Clear'), primary: true, on: () => { Settings.clearCache(); toastHome(tr('Cleared')); refresh(); } },
+        { label: tr('Cancel') }
+      ]);
+      return;
+    }
+    if (a === 'export') {
+      const code = Settings.exportBackup();
+      openConfirm(tr('Export settings'), code.slice(0, 280) + (code.length > 280 ? '…' : ''), [
+        { label: tr('Copy'), primary: true, on: () => { try { navigator.clipboard.writeText(code); } catch (e) {} toastHome(tr('Copied')); } },
+        { label: tr('OK') }
+      ]);
+      return;
+    }
+    if (a === 'import') {
+      promptValue(tr('Import settings'), tr('Paste a backup code.'), '', v => {
+        const r = Settings.importBackup(v);
+        openConfirm(tr('Import settings'), r.ok ? tr('Settings restored. Reloading…') : tr('Backup code is not valid.'), [
+          { label: tr('OK'), primary: true, on: () => { if (r.ok) location.reload(); } }
+        ]);
+      });
+      return;
+    }
+    if (a === 'reset') {
+      openConfirm(tr('Reset settings'), tr('Restore defaults? Playlists and downloads stay.'), [
+        { label: tr('Reset'), primary: true, on: () => { Settings.resetAll(); toastHome(tr('Settings reset')); refresh(); } },
+        { label: tr('Cancel') }
+      ]);
+      return;
+    }
+    if (a === 'about') {
+      openConfirm(tr('About'), 'Kayan IPTV  v' + Settings.VERSION + '\n' + tr('This app does not include any channels or media. You must provide your own content.'), [{ label: tr('OK'), primary: true }]);
+      return;
+    }
+    if (a === 'refresh') {
+      API.clearLists();
+      UI.setMessage(rows(), tr('Loading…'));
+      API.ensureLoaded().then(() => { toastHome(tr('Playlist refreshed')); openSection('movies', true); })
+        .catch(e => openConfirm(tr('Playlists & accounts'), tr('Could not load: {msg}', { msg: e && e.message ? e.message : e }), [{ label: tr('OK'), primary: true }]));
+      return;
+    }
+    if (a === 'profile-save') { Settings.rememberProfile(); toastHome(tr('Profile saved')); refresh(); return; }
+    if (a === 'profile-clear') { Settings.saveProfiles([]); toastHome(tr('Cleared')); refresh(); return; }
+    if (a === 'profile-add') {
+      Settings.rememberProfile();
+      API.clearConfig();
+      UI.showScreen('login');
+      return;
+    }
+    if (a === 'profile-switch' && item._profile) {
+      const p = item._profile;
+      UI.setMessage(rows(), tr('Signing in…'));
+      const go = p.type === 'xtream'
+        ? API.xtreamLogin(p.server, p.user, p.pass)
+        : API.m3uLogin(p.m3u);
+      go.then(() => { Settings.setCurrentProfileId(p.id); Settings.rememberProfile(); UI.showScreen('home'); openSection('movies', true); })
+        .catch(e => openConfirm(tr('Playlists & accounts'), (e && e.message) || tr('Login failed'), [{ label: tr('OK'), primary: true, on: refresh }]));
+      return;
+    }
+    if (a === 'profile-current') return;
+  }
+
+  function showSettings(refocus) {
+    loadId++;
+    currentKind = 'settings';
+    view = 'browse';
+    setActiveNav('settings');
+    stopSlideshow();
+    UI.clearHero(hero());
+    const paint = () => {
+      if (currentKind !== 'settings') return;
+      const built = Settings.build();
+      render(built.cats, built.map, 'settings');
+      slides = [];
+      if (refocus) {
+        const el = UI.$('.card') || UI.$('.navbtn.active');
+        if (el) el.focus();
+      }
+    };
+    if (window.Downloads) Downloads.refresh().then(paint, paint);
+    else paint();
   }
 
   function showDownloads(refocus) {
@@ -1008,7 +1178,7 @@ const App = (() => {
   // ---------- landing page ----------
   // The app opens on the section that was open last. If that section has nothing in it,
   // it opens on the first tab of the menu instead.
-  const SECTIONS = ['live', 'movies', 'series', 'recent', 'dl', 'fav'];
+  const SECTIONS = ['live', 'movies', 'series', 'recent', 'dl', 'fav', 'settings'];
   const DEFAULT_SECTION = 'movies'; // first run, nothing remembered yet
 
   const firstSection = () => {
@@ -1022,6 +1192,7 @@ const App = (() => {
     if (kind === 'fav') { showFavs(false); return Promise.resolve(); }
     if (kind === 'recent') { showRecent(false); return Promise.resolve(); }
     if (kind === 'dl') { showDownloads(false); return Promise.resolve(); }
+    if (kind === 'settings') { showSettings(false); return Promise.resolve(); }
     return loadCategory(kind);
   }
 
@@ -1121,6 +1292,7 @@ const App = (() => {
       p = API.m3uLogin(UI.$('#m-url').value.trim());
     }
     p.then(() => {
+      if (window.Settings) Settings.rememberProfile();
       UI.showScreen('home');
       setActiveNav(startSection());
       landing();
@@ -1153,6 +1325,18 @@ const App = (() => {
     UI.showScreen('login');
   });
 
+  // settings + clock
+  if (window.Settings) Settings.applyAll();
+  (function tickClock() {
+    const el = UI.$('#clock');
+    if (el) {
+      const d = new Date();
+      const two = n => (n < 10 ? '0' : '') + n;
+      el.textContent = two(d.getHours()) + ':' + two(d.getMinutes());
+    }
+    setTimeout(tickClock, 15000);
+  })();
+
   // auto-login
   if (API.getConfig()) {
     UI.showScreen('home');
@@ -1167,6 +1351,6 @@ const App = (() => {
     UI.showScreen('login');
   }
 
-  return { onBack, onArrow, onColor, onPlayerClosed, requestDownload, showDownloads };
+  return { onBack, onArrow, onColor, onPlayerClosed, requestDownload, showDownloads, showSettings };
 })();
 window.App = App;

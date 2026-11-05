@@ -413,6 +413,7 @@ const Player = (() => {
   function tryResume() {
     if (resumeDone || !ctx || isLive() || isCatchup() || !hasDuration()) return;
     resumeDone = true;
+    if (window.Settings && Settings.get('resume') === false) return;
     const pr = API.getProgress(info.url);
     if (pr && pr.t > 20 && pr.t < video.duration - 30) {
       video.currentTime = pr.t;
@@ -492,6 +493,7 @@ const Player = (() => {
     if (now - lastAdvance < 3000) return;
     lastAdvance = now;
     if (sleepEnd) { sleepDone(); return; }
+    if (window.Settings && Settings.get('autoNext') === false) { markFinished(); return; }
     if (autoChain >= STILL_AFTER) { showStill(); return; }
     autoChain++;
     markFinished();
@@ -781,14 +783,14 @@ const Player = (() => {
     triedJs = true;
     setMsg(tr('Opening…'));
     const liveBuf = isLive();
-    hls = new Hls({
+    const buf = (window.Settings && Settings.hlsBufferOpts)
+      ? Settings.hlsBufferOpts(liveBuf)
+      : (liveBuf
+        ? { maxBufferLength: 60, maxMaxBufferLength: 120, liveSyncDurationCount: 5, liveMaxLatencyDurationCount: 12 }
+        : { maxBufferLength: 30, maxMaxBufferLength: 60 });
+    hls = new Hls(Object.assign({
       enableWorker: false,
       lowLatencyMode: false,
-      // Live TV cannot be saved offline, so keep a larger buffer for fewer stalls.
-      maxBufferLength: liveBuf ? 60 : 30,
-      maxMaxBufferLength: liveBuf ? 120 : 60,
-      liveSyncDurationCount: liveBuf ? 5 : 3,
-      liveMaxLatencyDurationCount: liveBuf ? 12 : 10,
       manifestLoadingTimeOut: 20000,
       fragLoadingTimeOut: 20000,
       xhrSetup: (xhr) => {
@@ -798,7 +800,7 @@ const Player = (() => {
           noteResponse(xhr.status, body);
         });
       }
-    });
+    }, buf));
     hls.on(Hls.Events.MANIFEST_PARSED, () => { safePlay(); });
     if (Hls.Events.AUDIO_TRACKS_UPDATED) hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, applyLangPrefs);
     if (Hls.Events.SUBTITLE_TRACKS_UPDATED) hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, applyLangPrefs);
