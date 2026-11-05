@@ -51,7 +51,7 @@ const Player = (() => {
     back: $('btn-back'), play: $('btn-play'), rw: $('btn-rw'), ff: $('btn-ff'), next: $('btn-next'),
     start: $('btn-start'), live: $('btn-live'),
     eps: $('btn-eps'), chans: $('btn-chans'), guide: $('btn-guide'), tracks: $('btn-tracks'), pic: $('btn-pic'),
-    speed: $('btn-speed'), sleep: $('btn-sleep'), fav: $('btn-fav')
+    speed: $('btn-speed'), sleep: $('btn-sleep'), fav: $('btn-fav'), dl: $('btn-dl')
   };
 
   const PATH_PLAY = 'M8 5v14l11-7z';
@@ -228,6 +228,21 @@ const Player = (() => {
     B.fav.classList.toggle('on', on);
     B.fav.querySelector('.plabel').textContent = on ? tr('Favorited') : tr('Favorite');
     B.fav.classList.toggle('hidden', !(info && info.fav));
+    if (B.dl) {
+      const canDl = !!ctx && !isLive() && !isCatchup() && !!(info && (info.remoteUrl || info.url));
+      B.dl.classList.toggle('hidden', !canDl);
+      let label = tr('Download');
+      if (canDl && window.Downloads) {
+        const job = Downloads.jobByUrl(info.remoteUrl || info.url);
+        if (job) {
+          if (job.status === 'done') label = tr('Downloaded');
+          else if (job.status === 'running' || job.status === 'queued') label = tr('Downloading…');
+          else if (job.status === 'paused') label = tr('Paused');
+        }
+      }
+      B.dl.querySelector('.plabel').textContent = label;
+      B.dl.classList.toggle('on', !!(window.Downloads && Downloads.jobByUrl(info.remoteUrl || info.url) && Downloads.jobByUrl(info.remoteUrl || info.url).status === 'done'));
+    }
   }
 
   function updateStartBtn() {
@@ -765,9 +780,15 @@ const Player = (() => {
     engine = 'js';
     triedJs = true;
     setMsg(tr('Opening…'));
+    const liveBuf = isLive();
     hls = new Hls({
       enableWorker: false,
       lowLatencyMode: false,
+      // Live TV cannot be saved offline, so keep a larger buffer for fewer stalls.
+      maxBufferLength: liveBuf ? 60 : 30,
+      maxMaxBufferLength: liveBuf ? 120 : 60,
+      liveSyncDurationCount: liveBuf ? 5 : 3,
+      liveMaxLatencyDurationCount: liveBuf ? 12 : 10,
       manifestLoadingTimeOut: 20000,
       fragLoadingTimeOut: 20000,
       xhrSetup: (xhr) => {
@@ -1780,6 +1801,25 @@ const Player = (() => {
   B.speed.addEventListener('click', () => openDrawer(buildSpeed, B.speed));
   B.sleep.addEventListener('click', () => openDrawer(buildSleep, B.sleep));
   B.fav.addEventListener('click', toggleFav);
+  if (B.dl) B.dl.addEventListener('click', () => {
+    if (!info || isLive() || isCatchup()) {
+      toast(tr('Live TV cannot be downloaded. Live channels keep a larger buffer instead.'), 2400);
+      return;
+    }
+    const item = {
+      name: info.title,
+      url: info.remoteUrl || info.url,
+      icon: info.icon,
+      seriesName: info.series && info.series.name,
+      season: info.series && info.series.season,
+      ep: info.series && info.series.ep,
+      sid: info.series && info.series.sid,
+      seriesCover: info.series && info.series.cover,
+      epTitle: info.subtitle || ''
+    };
+    const kind = (ctx && ctx.type === 'series') ? 'episode' : 'movies';
+    if (window.App && App.requestDownload) App.requestDownload(item, kind);
+  });
   upNextBtn.addEventListener('click', () => { idle(); markFinished(); playIndex(ctx.index + 1); });
   upCreditsBtn.addEventListener('click', dismissCredits);
   skipBtn.addEventListener('click', doSkip);
@@ -1878,6 +1918,6 @@ const Player = (() => {
   applyPicture();
   applySubStyle();
 
-  return { play, handleKey, back, stop, toggle: togglePlay };
+  return { play, handleKey, back, stop, toggle: togglePlay , toast};
 })();
 window.Player = Player;

@@ -115,6 +115,17 @@ const UI = (() => {
           q.textContent = it._qualities.join(' \u00b7 ');
           card.appendChild(q);
         }
+        if (it._job && it._job.status === 'done') {
+          const b = document.createElement('div');
+          b.className = 'dl-badge';
+          b.textContent = tr('Saved');
+          card.appendChild(b);
+        } else if (it._dlAction === 'season') {
+          const b = document.createElement('div');
+          b.className = 'dl-badge';
+          b.textContent = tr('Save');
+          card.appendChild(b);
+        }
         const pct = handlers.progress ? handlers.progress(it, rk) : 0;
         if (pct > 0) {
           const bar = document.createElement('div');

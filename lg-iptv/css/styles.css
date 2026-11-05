@@ -489,3 +489,10 @@ html[lang="ar"] .hero h2, html[lang="ar"] .hero p, html[lang="ar"] .hero-meta { 
 .card .title .sub { font-size: 17px; color: #d2d2da; }
 .card .qual { top: 12px; left: 12px; border-radius: 8px; }
 .card .prog { height: 7px; }
+
+
+/* offline downloads */
+.card .dl-badge { position: absolute; top: 10px; right: 12px; padding: 4px 10px; border-radius: 8px; background: rgba(229, 9, 20, 0.92); color: #fff; font-size: 16px; font-weight: 700; letter-spacing: 0.04em; }
+.confirm-actions { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
+.confirm-actions .d-item.primary { background: var(--accent); color: #fff; }
+#btn-dl.on { color: var(--accent); }

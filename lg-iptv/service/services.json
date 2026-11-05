@@ -1,16 +1,20 @@
 {
   "id": "com.amrkz.lumioplayer.proxy",
-  "description": "Local stream proxy",
+  "description": "Local stream proxy and offline downloads",
   "services": [
     {
       "name": "com.amrkz.lumioplayer.proxy",
-      "description": "Local stream proxy",
+      "description": "Local stream proxy and offline downloads",
       "commands": [
-        {
-          "name": "alive",
-          "description": "Start the local player and return its port",
-          "public": true
-        }
+        { "name": "alive", "description": "Start the local player and return its port", "public": true },
+        { "name": "dlSpace", "description": "Free and used storage for downloads", "public": true },
+        { "name": "dlList", "description": "List offline downloads", "public": true },
+        { "name": "dlStart", "description": "Start or queue a download", "public": true },
+        { "name": "dlPause", "description": "Pause a download", "public": true },
+        { "name": "dlResume", "description": "Resume a download", "public": true },
+        { "name": "dlCancel", "description": "Cancel a download and delete the partial file", "public": true },
+        { "name": "dlRemove", "description": "Delete a finished download", "public": true },
+        { "name": "dlStatus", "description": "Subscribe to download progress", "public": true }
       ]
     }
   ]

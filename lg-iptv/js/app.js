@@ -37,13 +37,16 @@ const App = (() => {
   }
 
   function resolveItem(it, kind) {
+    let url = API.streamUrl(it, kind);
+    if (url && window.Downloads && kind !== 'live') url = Downloads.resolvePlayUrl(url) || url;
     const out = {
-      url: API.streamUrl(it, kind),
+      url: url,
       title: it.seriesName || it.name || it.title || '',
       subtitle: it.seriesName ? tr('S{s}:E{e}', { s: it.season, e: it.ep }) + '  ' + it.epTitle : '',
       icon: it.icon || it.stream_icon || it.cover || '',
       fav: favOf(it, kind),
-      alt: kind === 'live' ? API.liveAltUrl(it) : null
+      alt: kind === 'live' ? API.liveAltUrl(it) : null,
+      remoteUrl: API.streamUrl(it, kind)
     };
     if (kind === 'episode') {
       // saved with the watch progress, so Continue Watching can reopen the whole series
@@ -275,6 +278,115 @@ const App = (() => {
   }
   UI.$('#picker').addEventListener('mousedown', (e) => { if (e.target === UI.$('#picker')) closePicker(); });
 
+  // ---------- download confirm ----------
+  let confirmOpen = false, confirmReturn = null;
+  function closeConfirm() {
+    if (!confirmOpen) return;
+    confirmOpen = false;
+    UI.$('#confirm').classList.add('hidden');
+    if (confirmReturn && document.body.contains(confirmReturn)) {
+      try { confirmReturn.focus({ preventScroll: true }); } catch (e) { confirmReturn.focus(); }
+    }
+    confirmReturn = null;
+  }
+  function openConfirm(title, body, actions) {
+    UI.$('#confirm-title').textContent = title || '';
+    UI.$('#confirm-body').textContent = body || '';
+    const box = UI.$('#confirm-actions');
+    box.innerHTML = '';
+    (actions || []).forEach((a, i) => {
+      const b = document.createElement('button');
+      b.className = 'd-item' + (a.primary ? ' primary' : '');
+      b.textContent = a.label;
+      b.addEventListener('click', () => { closeConfirm(); if (a.on) a.on(); });
+      box.appendChild(b);
+      if (i === 0) setTimeout(() => b.focus(), 0);
+    });
+    confirmReturn = document.activeElement;
+    confirmOpen = true;
+    UI.$('#confirm').classList.remove('hidden');
+  }
+  UI.$('#confirm').addEventListener('mousedown', (e) => { if (e.target === UI.$('#confirm')) closeConfirm(); });
+
+  function dlMeta(item, kind) {
+    const url = item.url || API.streamUrl(item, kind === 'episode' ? 'series' : kind);
+    if (!url) return null;
+    return {
+      url: url,
+      name: item.seriesName ? (item.seriesName + ' · ' + tr('S{s} E{e}', { s: item.season, e: item.ep })) : (item.name || item.title || ''),
+      icon: item.seriesCover || item.icon || item.stream_icon || item.cover || '',
+      kind: kind === 'episode' ? 'series' : (kind || 'movies'),
+      seriesId: item.sid || item.series_id || '',
+      seriesName: item.seriesName || item.name || '',
+      season: item.season || '',
+      ep: item.ep || ''
+    };
+  }
+
+  function explainGate(r) {
+    if (!r) return tr('Could not start the download.');
+    if (r.reason === 'live') return tr('Live TV cannot be downloaded. Live channels keep a larger buffer instead.');
+    if (r.reason === 'nospace' || r.block) return tr('Not enough free space. Need {need}, free {free}.', { need: Downloads.fmtBytes(r.need), free: Downloads.fmtBytes(r.free) });
+    if (r.reason === 'unknown') return tr('File size is unknown. Free space: {free}. Download anyway?', { free: Downloads.fmtBytes(r.free) });
+    if (r.reason === 'low') return tr('This would leave less than 1 GB free ({free} free, file {need}). Download anyway?', { free: Downloads.fmtBytes(r.free), need: Downloads.fmtBytes(r.need) });
+    if (r.reason === 'nodir') return tr('Storage is not available on this TV.');
+    return tr('Could not start the download.');
+  }
+
+  function requestDownload(item, kind) {
+    if (!window.Downloads) return;
+    if (kind === 'live') {
+      openConfirm(tr('Downloads'), tr('Live TV cannot be downloaded. Live channels keep a larger buffer instead.'), [
+        { label: tr('OK'), primary: true }
+      ]);
+      return;
+    }
+    const meta = dlMeta(item, kind);
+    if (!meta) return;
+    Downloads.start(meta, false).then(r => {
+      if (r && r.already) { openConfirm(tr('Downloads'), tr('Already downloaded.'), [{ label: tr('OK'), primary: true }]); return; }
+      if (r && r.ok && !r.warn) { toastHome(tr('Download started')); return; }
+      if (r && (r.warn || r.block)) {
+        const actions = [{ label: tr('Cancel') }];
+        if (!r.block) actions.unshift({ label: tr('Download anyway'), primary: true, on: () => Downloads.start(meta, true).then(() => toastHome(tr('Download started'))) });
+        openConfirm(tr('Storage warning'), explainGate(r), actions);
+        return;
+      }
+      openConfirm(tr('Downloads'), explainGate(r), [{ label: tr('OK'), primary: true }]);
+    }).catch(() => openConfirm(tr('Downloads'), tr('Could not start the download.'), [{ label: tr('OK'), primary: true }]));
+  }
+
+  function downloadSeason(seasonKey, list) {
+    const eps = (list || []).filter(ep => ep && ep.url);
+    if (!eps.length) return;
+    // queue one by one; first call surfaces the space warning for the first file
+    const run = (i, force) => {
+      if (i >= eps.length) { toastHome(tr('Season queued')); return; }
+      const meta = dlMeta(eps[i], 'episode');
+      Downloads.start(meta, force).then(r => {
+        if (r && r.block) { openConfirm(tr('Storage warning'), explainGate(r), [{ label: tr('OK'), primary: true }]); return; }
+        if (r && r.warn && !force) {
+          openConfirm(tr('Storage warning'), explainGate(r), [
+            { label: tr('Download anyway'), primary: true, on: () => run(i, true) },
+            { label: tr('Cancel') }
+          ]);
+          return;
+        }
+        run(i + 1, force);
+      });
+    };
+    run(0, false);
+  }
+
+  function toastHome(text) {
+    if (window.Player && Player.toast) { Player.toast(text, 1800); return; }
+    const el = UI.$('#toast');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 1800);
+  }
+
   // ---------- hero extras: TV guide for channels, details for movies ----------
   function enrich(item, kind) {
     if (kind === 'live' && item.stream_id) {
@@ -460,6 +572,17 @@ const App = (() => {
   }
 
   function pick(item, kind, list) {
+    if (item._dlAction === 'season') { downloadSeason(item._seasonKey, item._seasonEps); return; }
+    if (item._dlAction === 'pause' && item._job) { Downloads.pause(item._job.id).then(() => showDownloads(true)); return; }
+    if (item._dlAction === 'resume' && item._job) { Downloads.resume(item._job.id).then(() => showDownloads(true)); return; }
+    if (item._dlAction === 'cancel' && item._job) { Downloads.cancel(item._job.id).then(() => showDownloads(true)); return; }
+    if (item._dlAction === 'remove' && item._job) { Downloads.remove(item._job.id).then(() => showDownloads(true)); return; }
+    if (item._job && item._job.status === 'done' && item._job.url) {
+      // play the local file through the normal player path
+      const fake = { name: item.name, icon: item.icon, url: item._job.url, sid: item._job.seriesId, seriesName: item._job.seriesName, season: item._job.season, ep: item._job.ep, seriesCover: item.icon };
+      pick(fake, item._job.kind === 'series' ? 'episode' : 'movies', [fake]);
+      return;
+    }
     if (item.cat) { showCategory(currentKind, item.cat); return; }
     if (item._variants && item._variants.length > 1) { openPicker(item, kind); return; }
     if (kind === 'series' && !item.url) { showEpisodes(item); return; }
@@ -493,12 +616,99 @@ const App = (() => {
       if (id !== loadId) return;
       const built = episodesFromInfo(series, info);
       currentEpisodes = built.flat;
+      built.cats.forEach(c => {
+        const eps = built.map[c.category_id] || [];
+        built.map[c.category_id] = [{
+          name: tr('Download season'),
+          cat: null,
+          _dlAction: 'season',
+          _seasonKey: c.category_id,
+          _seasonEps: eps,
+          icon: series.cover || ''
+        }].concat(eps);
+      });
       render(built.cats, built.map, 'episode');
       const firstCard = UI.$('.card');
       if (firstCard) firstCard.focus();
     }).catch(e => {
       if (id === loadId) UI.setMessage(rows(), tr('Could not load episodes: {msg}', { msg: e && e.message ? e.message : e }));
     });
+  }
+
+  function showDownloads(refocus) {
+    loadId++;
+    currentKind = 'dl';
+    view = 'browse';
+    setActiveNav('dl');
+    stopSlideshow();
+    UI.clearHero(hero());
+    const paint = () => {
+      if (currentKind !== 'dl') return;
+      const jobs = (window.Downloads && Downloads.jobs) || [];
+      const space = (window.Downloads && Downloads.space) || {};
+      const cats = [], map = {};
+      const free = space.free || 0, used = space.used || 0, total = space.total || (free + used);
+      const banner = [{
+        name: tr('Storage: {used} used · {free} free', { used: Downloads.fmtBytes(used), free: Downloads.fmtBytes(free) }),
+        cat: null, _dlAction: 'noop', icon: ''
+      }];
+      map.__space = banner;
+      cats.push({ category_id: '__space', category_name: tr('Storage'), kind: 'dl', limit: 5 });
+      const active = jobs.filter(j => j.status === 'running' || j.status === 'queued' || j.status === 'paused' || j.status === 'error');
+      const done = jobs.filter(j => j.status === 'done');
+      if (active.length) {
+        map.__active = active.map(j => ({
+          name: j.name || tr('Download'),
+          icon: j.icon,
+          sub: j.status === 'running'
+            ? (Math.round((j.bytes / Math.max(1, j.total)) * 100) + '% · ' + Downloads.fmtBytes(j.bytes))
+            : (j.status === 'paused' ? tr('Paused') : (j.status === 'error' ? tr('Failed') : tr('Queued'))),
+          _job: j,
+          _dlAction: j.status === 'paused' || j.status === 'error' ? 'resume' : (j.status === 'running' || j.status === 'queued' ? 'pause' : 'noop')
+        }));
+        cats.push({ category_id: '__active', category_name: tr('In progress'), kind: 'dl', limit: 40 });
+      }
+      if (done.length) {
+        map.__done = done.map(j => ({
+          name: j.name || tr('Download'),
+          icon: j.icon,
+          sub: Downloads.fmtBytes(j.total || j.bytes),
+          _job: j
+        }));
+        cats.push({ category_id: '__done', category_name: tr('Ready to play'), kind: 'movies', limit: 40 });
+      }
+      if (!active.length && !done.length) {
+        slides = [];
+        UI.setMessage(rows(), tr('No downloads yet. Open a movie or episode and choose Download.'));
+        // still show storage row
+        render(cats, map, 'dl');
+        return;
+      }
+      // action chips under in-progress
+      if (active.length) {
+        map.__acts = active.map(j => ({
+          name: tr('Remove') + ': ' + (j.name || ''),
+          _job: j, _dlAction: j.status === 'done' ? 'remove' : 'cancel', icon: ''
+        }));
+        cats.push({ category_id: '__acts', category_name: tr('Manage'), kind: 'dl', limit: 40 });
+      }
+      if (done.length) {
+        map.__rm = done.map(j => ({ name: tr('Delete') + ': ' + (j.name || ''), _job: j, _dlAction: 'remove', icon: '' }));
+        cats.push({ category_id: '__rm', category_name: tr('Delete downloads'), kind: 'dl', limit: 40 });
+      }
+      render(cats, map, 'dl');
+      slides = done.slice(0, 6).map(j => ({ name: j.name, icon: j.icon, url: j.url, _job: j }));
+      slideKind = 'dl';
+      slideIdx = 0;
+      if (!refocus) startSlideshow(false);
+      if (refocus) {
+        const el = UI.$('.card') || UI.$('.navbtn.active');
+        if (el) el.focus();
+      }
+    };
+    UI.setMessage(rows(), tr('Loading…'));
+    if (window.Downloads) Downloads.refresh().then(paint, paint);
+    else paint();
   }
 
   function showFavs(refocus) {
@@ -683,6 +893,7 @@ const App = (() => {
 
   function onArrow(dir) {
     if (!homeVisible()) return false;
+    if (confirmOpen) { spatialNav(dir, UI.$('#confirm')); return true; }
     if (pickerOpen) { spatialNav(dir, UI.$('#picker')); return true; }
     const a = document.activeElement;
     const list = railRows();
@@ -740,6 +951,7 @@ const App = (() => {
   // after the player closes, put the focused row back in its slot
   function onPlayerClosed() {
     if (currentKind === 'recent' && view === 'browse') { showRecent(true); return; } // what was just watched moves to the front
+    if (currentKind === 'dl' && view === 'browse') { showDownloads(true); return; }
     const a = document.activeElement;
     if (a && a.classList && a.classList.contains('card') && rowOf(a) && railRows().indexOf(rowOf(a)) >= 0) place(a);
   }
@@ -747,6 +959,7 @@ const App = (() => {
   // Back on the home screen: step out of sub-views first, exit the app from Live TV.
   function onBack() {
     if (!homeVisible()) return false;
+    if (confirmOpen) { closeConfirm(); return true; }
     if (pickerOpen) { closePicker(); return true; }
     if (view === 'episodes' || view === 'category') { openSection(currentKind, false); return true; } // back to the section it came from
     if (currentKind !== 'movies') { loadCategory('movies'); return true; } // Movies is home
@@ -795,7 +1008,7 @@ const App = (() => {
   // ---------- landing page ----------
   // The app opens on the section that was open last. If that section has nothing in it,
   // it opens on the first tab of the menu instead.
-  const SECTIONS = ['live', 'movies', 'series', 'recent', 'fav'];
+  const SECTIONS = ['live', 'movies', 'series', 'recent', 'dl', 'fav'];
   const DEFAULT_SECTION = 'movies'; // first run, nothing remembered yet
 
   const firstSection = () => {
@@ -808,6 +1021,7 @@ const App = (() => {
     if (remember) API.pref('section', kind);
     if (kind === 'fav') { showFavs(false); return Promise.resolve(); }
     if (kind === 'recent') { showRecent(false); return Promise.resolve(); }
+    if (kind === 'dl') { showDownloads(false); return Promise.resolve(); }
     return loadCategory(kind);
   }
 
@@ -832,7 +1046,7 @@ const App = (() => {
 
   // colour buttons: red = search, green = favorites, blue = next section
   function onColor(k) {
-    if (!homeVisible() || pickerOpen) return false;
+    if (!homeVisible() || pickerOpen || confirmOpen) return false;
     const goNav = () => { const nb = UI.$('.navbtn.active'); if (nb) nb.focus(); };
     if (k === KEYS.RED) { showSearch(); return true; }
     if (k === KEYS.GREEN) { openSection('fav', true); goNav(); return true; }
@@ -953,6 +1167,6 @@ const App = (() => {
     UI.showScreen('login');
   }
 
-  return { onBack, onArrow, onColor, onPlayerClosed };
+  return { onBack, onArrow, onColor, onPlayerClosed, requestDownload, showDownloads };
 })();
 window.App = App;

@@ -188,6 +188,95 @@ function pictures() {
   return images;
 }
 
+// Offline movie/episode downloads kept on the TV's app storage.
+var downloads = null;
+function dls() {
+  if (!downloads) {
+    downloads = require('./download').create({
+      dirs: [process.env.LUMIO_DL_DIR, '/media/developer/apps/usr/palm/applications/com.amrkz.lumioplayer/downloads', '/media/developer/temp/lumio-dl', '/var/tmp/lumio-dl', '/tmp/lumio-dl']
+    });
+  }
+  return downloads;
+}
+
+function readBody(req, cb) {
+  var chunks = [], size = 0;
+  req.on('data', function (c) {
+    size += c.length;
+    if (size < 200000) chunks.push(c);
+  });
+  req.on('end', function () {
+    var raw = Buffer.concat(chunks).toString('utf8');
+    var data = {};
+    try { data = raw ? JSON.parse(raw) : {}; } catch (e) { data = {}; }
+    cb(data);
+  });
+  req.on('error', function () { cb({}); });
+}
+
+function json(res, code, obj) {
+  var body = JSON.stringify(obj || {});
+  res.writeHead(code || 200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' });
+  res.end(body);
+}
+
+function handleDownloadApi(req, res, pathOnly, search) {
+  var d = dls();
+  var id = queryValue(search, 'id');
+  if (pathOnly === '/dl/file') {
+    if (!id) { res.writeHead(400); res.end('id'); return true; }
+    d.serveFile(req, res, id);
+    return true;
+  }
+  if (req.method === 'GET' && pathOnly === '/dl/space') {
+    d.space(function (err, sp) { json(res, 200, sp || { free: 0, total: 0, used: 0 }); });
+    return true;
+  }
+  if (req.method === 'GET' && pathOnly === '/dl/list') {
+    json(res, 200, d.list());
+    return true;
+  }
+  if (req.method === 'GET' && pathOnly === '/dl/get') {
+    json(res, 200, { job: id ? d.get(id) : d.byUrl(queryValue(search, 'u')) });
+    return true;
+  }
+  if (req.method === 'POST' && pathOnly === '/dl/start') {
+    readBody(req, function (body) {
+      d.start(body || {}, !!body.force, function (err, result) {
+        if (err) json(res, 500, { ok: false, error: String(err.message || err) });
+        else json(res, 200, result || { ok: false });
+      });
+    });
+    return true;
+  }
+  if (req.method === 'POST' && pathOnly === '/dl/pause') {
+    readBody(req, function (body) { d.pause(body.id || id, function (err, r) { json(res, 200, r || { ok: false }); }); });
+    return true;
+  }
+  if (req.method === 'POST' && pathOnly === '/dl/resume') {
+    readBody(req, function (body) { d.resume(body.id || id, function (err, r) { json(res, 200, r || { ok: false }); }); });
+    return true;
+  }
+  if (req.method === 'POST' && pathOnly === '/dl/cancel') {
+    readBody(req, function (body) { d.cancel(body.id || id, function (err, r) { json(res, 200, r || { ok: false }); }); });
+    return true;
+  }
+  if (req.method === 'POST' && pathOnly === '/dl/remove') {
+    readBody(req, function (body) { d.remove(body.id || id, function (err, r) { json(res, 200, r || { ok: false }); }); });
+    return true;
+  }
+  if (req.method === 'POST' && pathOnly === '/dl/check') {
+    readBody(req, function (body) {
+      d.check(body.url || '', body.size || 0, function (err, r) {
+        if (err) json(res, 500, { ok: false, error: String(err.message || err) });
+        else json(res, 200, r || { ok: false });
+      });
+    });
+    return true;
+  }
+  return false;
+}
+
 // A movie file has no .m3u8 or .ts in its name. The TV player decides how to open it from the
 // Content-Type, and some providers send none or a generic one.
 var VIDEO_TYPES = { mp4: 'video/mp4', m4v: 'video/mp4', mkv: 'video/x-matroska', avi: 'video/x-msvideo', mov: 'video/quicktime', webm: 'video/webm', ts: 'video/mp2t' };
@@ -201,10 +290,14 @@ function onRequest(req, res) {
   cors(res);
   if (!ownRequest(req)) { res.writeHead(403); res.end(); return; }
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
-  if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); res.end(); return; }
   var q = String(req.url || '');
   var pathOnly = q.split('?')[0];
   var search = q.indexOf('?') >= 0 ? q.slice(q.indexOf('?')) : '';
+  if (pathOnly.indexOf('/dl') === 0) {
+    if (handleDownloadApi(req, res, pathOnly, search)) return;
+    res.writeHead(404); res.end('dl'); return;
+  }
+  if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); res.end(); return; }
   var target = queryValue(search, 'u');
   if (!target || !allowed(target)) { res.writeHead(400); res.end('bad url'); return; }
   if (pathOnly === '/img') { pictures().serve(req, res, target, queryValue(search, 'w')); return; }
@@ -293,4 +386,4 @@ function listen(startPort, cb) {
   attempt();
 }
 
-module.exports = { listen: listen, rewrite: rewrite, wrap: wrap };
+module.exports = { listen: listen, rewrite: rewrite, wrap: wrap, dls: dls };
