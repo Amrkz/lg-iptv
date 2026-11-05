@@ -1,0 +1,21 @@
+{
+  "name": "kayan-iptv",
+  "version": "1.0.0",
+  "description": "Kayan IPTV for Android (phone + TV)",
+  "private": true,
+  "scripts": {
+    "sync": "npx cap sync android",
+    "build:apk": "cd android && ./gradlew assembleRelease",
+    "copy-web": "node scripts/copy-web.js"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/app": "^7.1.0",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/filesystem": "^7.1.4",
+    "@capacitor/status-bar": "^7.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3"
+  }
+}

@@ -85,3 +85,14 @@ Phases 1–5 of the plan are built and pass a simulated test run. They have not 
 ## Disclaimer
 
 This is a player only. It provides no content. You are responsible for using it only with a service you are entitled to use.
+
+## Android APK
+
+An Android (phone + TV) build lives in [`android-app/`](android-app/). It wraps the same web UI with Capacitor.
+
+```bash
+cd android-app && npm install && node scripts/copy-web.js && npx cap sync android
+cd android && ./gradlew assembleRelease
+```
+
+The signed APK is produced at `android/app/build/outputs/apk/release/app-release.apk` (copy to `KayanIPTV.apk`). See `android-app/README.md`.

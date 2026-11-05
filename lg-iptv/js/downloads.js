@@ -1,6 +1,8 @@
 // Offline downloads. Talks to the TV service over the local proxy HTTP API
 // (and luna when the bus is available). Live TV is never downloaded.
 const Downloads = (() => {
+  // Capacitor Android provides a Filesystem-backed manager; use it when present.
+  if (window.AndroidDownloads) return window.AndroidDownloads;
   const BUS = 'luna://com.amrkz.lumioplayer.proxy/';
   let cache = { jobs: [], space: null, at: 0 };
   let pollTimer = null;

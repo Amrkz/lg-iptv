@@ -1,0 +1,15 @@
+{
+  "appId": "com.amrkz.kayaniptv",
+  "appName": "Kayan IPTV",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true,
+    "allowNavigation": ["*"]
+  },
+  "android": {
+    "allowMixedContent": true,
+    "backgroundColor": "#0a0a0c",
+    "webContentsDebuggingEnabled": true
+  }
+}

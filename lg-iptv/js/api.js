@@ -192,6 +192,8 @@ const API = (() => {
   // app's FFmpeg player uses, and the TV video element sits on it without a picture.
   function liveExt(c) {
     const f = c.formats || [];
+    // Android WebView + hls.js need an HLS playlist; raw .ts is for native FFmpeg players.
+    if (window.KayanPlatform && window.KayanPlatform.isAndroid) return 'm3u8';
     return f.length && f.indexOf('m3u8') < 0 && f.indexOf('ts') >= 0 ? 'ts' : 'm3u8';
   }
 

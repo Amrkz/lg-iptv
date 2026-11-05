@@ -49,6 +49,13 @@ function spatialNav(dir, scope) {
 }
 
 function exitApp() {
+  try {
+    var CapApp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+    if (CapApp) {
+      if (CapApp.minimizeApp) { CapApp.minimizeApp(); return; }
+      if (CapApp.exitApp) { CapApp.exitApp(); return; }
+    }
+  } catch (e) {}
   if (window.webOS && window.webOS.platformBack) window.webOS.platformBack();
   else window.close();
 }
@@ -96,7 +103,7 @@ window.pointerAiming = () => pointerAim;
 document.addEventListener('keydown', (e) => {
   pointerAim = false;
   // A keyboard's Esc is Back. Every handler below reads keyCode, so say it once here.
-  if (e.keyCode === 27) { try { Object.defineProperty(e, 'keyCode', { value: KEYS.BACK }); } catch (err) { /* read-only: leave it */ } }
+  if (e.keyCode === 27 || e.keyCode === 4) { try { Object.defineProperty(e, 'keyCode', { value: KEYS.BACK }); } catch (err) { /* read-only: leave it */ } }
   const k = e.keyCode;
 
   // the exit question owns the keys while it is open

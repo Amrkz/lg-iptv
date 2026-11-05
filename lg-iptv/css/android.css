@@ -1,0 +1,24 @@
+/* Android / touch refinements. Harmless on webOS if unused. */
+html.plat-android, html.touch {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+html.plat-android input, html.touch input {
+  -webkit-user-select: text;
+  user-select: text;
+}
+/* Larger hit targets on phones */
+html.touch .navbtn,
+html.touch .btn,
+html.touch .pbtn,
+html.touch .card {
+  cursor: pointer;
+}
+html.plat-android #login-help {
+  opacity: 0.75;
+}
+html.plat-android.touch #login-help::after {
+  content: none;
+}
