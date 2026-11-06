@@ -1028,6 +1028,23 @@ const App = (() => {
     el.classList.add('on');
     rows().classList.add('with-rtabs');
   }
+  // idle on Recent: the tabs step through Live TV, Movies, Series by themselves
+  const RECENT_ROTATE_MS = 12000;
+  let recentIdleT = null;
+  function armRecentRotate() {
+    clearTimeout(recentIdleT);
+    recentIdleT = setTimeout(rotateRecentTab, RECENT_ROTATE_MS);
+  }
+  function rotateRecentTab() {
+    const tabs = Array.from(document.querySelectorAll('#rtabs.on .rtab'));
+    if (currentKind !== 'recent' || view !== 'browse' || !homeVisible() || tabs.length < 2 || themeOpen || confirmOpen || pickerOpen) { armRecentRotate(); return; }
+    const i = tabs.findIndex(t => t.dataset.kind === recentTab);
+    recentTab = tabs[(i + 1) % tabs.length].dataset.kind;
+    showRecent(false);
+    focusRecentTab();
+    armRecentRotate();
+  }
+  ['keydown', 'mousemove', 'wheel'].forEach(ev => document.addEventListener(ev, () => { if (currentKind === 'recent') armRecentRotate(); }, { passive: true, capture: true }));
   function focusRecentTab() {
     const b = UI.$('#rtabs .rtab.active') || UI.$('#rtabs .rtab');
     if (b) b.focus();
@@ -1060,6 +1077,7 @@ const App = (() => {
     const pick = cats.filter(c => c.kind === recentTab).map(c => Object.assign({}, c, { grid: true, limit: 60 }));
     render(pick, map, 'recent');
     showRecentTabs(cats);
+    armRecentRotate();
     slides = live.concat(movies, series).slice(0, 6);
     slideKind = 'recent';
     slideIdx = 0;
