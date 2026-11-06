@@ -537,3 +537,8 @@ html[data-theme] .hero h2.t-xl { font-size: 60px; }
 html[data-theme] .hero h2 { line-height: 1.32; }
 /* pointer hover shows what a player button does */
 #player .pbtn:hover .plabel { visibility: visible; opacity: 1; color: #fff; }
+/* category title opens the full grid (pointer) */
+.row h3.head-link { cursor: pointer; width: max-content; max-width: 100%; }
+.row h3.head-link:hover > span:first-child { text-decoration: underline; text-underline-offset: 8px; }
+.row h3.head-link::after { content: '\203A'; margin-inline-start: 14px; opacity: 0.55; }
+html[dir="rtl"] .row h3.head-link::after { content: '\2039'; }

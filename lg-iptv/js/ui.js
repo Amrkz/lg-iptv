@@ -66,6 +66,11 @@ const UI = (() => {
         countEl.textContent = total;
         h3.appendChild(countEl);
       }
+      // pointer click on a category's title opens all of it as a grid
+      if (!cat.grid && handlers.head && cat.category_id && String(cat.category_id).indexOf('__') !== 0) {
+        h3.classList.add('head-link');
+        h3.addEventListener('click', () => handlers.head(cat, rk));
+      }
       const itemsEl = document.createElement('div');
       itemsEl.className = 'row-items' + (cat.grid ? ' grid' : '');
       items.forEach((it, idx) => {

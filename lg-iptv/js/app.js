@@ -534,6 +534,7 @@ const App = (() => {
 
   let heroTimer = null;
   const handlers = {
+    head(cat, kind) { if (Settings.catLocked && Settings.catLocked(cat.category_name)) { pick({ cat: cat, name: cat.category_name }, kind); return; } showCategory(kind === 'recent' ? currentKind : kind, cat); },
     // the hero follows the focused card (debounced, so scrolling a row stays smooth)
     focus: (item, kind) => {
       stopSlideshow();
