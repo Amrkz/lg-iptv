@@ -519,3 +519,11 @@ html[dir="rtl"] .rtabs { left: auto; right: 60px; }
 .rtab:focus { outline: none; border-color: #fff; color: #fff; transform: scale(1.04); }
 .rows.with-rtabs { padding-left: 320px; }
 html[dir="rtl"] .rows.with-rtabs { padding-left: 0; padding-right: 320px; }
+
+/* hero title: always fit inside its box, whatever the language */
+.hero h2 { max-width: 1000px; overflow-wrap: anywhere; word-break: break-word; white-space: normal; unicode-bidi: plaintext; text-align: start; }
+.hero h2 span { white-space: normal; }
+.hero h2.t-l { font-size: 76px; }
+.hero h2.t-xl { font-size: 60px; }
+html[data-theme] .hero h2.t-l { font-size: 76px; }
+html[data-theme] .hero h2.t-xl { font-size: 60px; }

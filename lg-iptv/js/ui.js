@@ -333,6 +333,9 @@ const UI = (() => {
     const h2text = document.createElement('span');
     h2text.textContent = item.name || item.title || '';
     h2.appendChild(h2text);
+    // long or mixed Arabic/Latin titles step down in size so they never run off the screen
+    const tlen = h2text.textContent.length;
+    if (tlen > 26) h2.classList.add('t-xl'); else if (tlen > 16) h2.classList.add('t-l');
     const p = document.createElement('p');
     p.textContent = item.plot || item.description || tr('Press OK to play. Press the yellow button to add it to your favorites.');
     p.dir = 'auto';
