@@ -161,7 +161,7 @@ const API = (() => {
     listCache[key] = { t: Date.now(), p };
     return p;
   }
-  function clearLists() { Object.keys(listCache).forEach(k => { delete listCache[k]; }); }
+  function clearLists() { Object.keys(listCache).forEach(k => { delete listCache[k]; }); m3uItems = null; } // M3U is fetched again too
 
   function getCategories(kind) {
     const c = getConfig();
