@@ -535,3 +535,5 @@ html[data-theme] .hero h2.t-xl { font-size: 60px; }
 .card .title > span:not(.sub) { line-height: 1.5; max-height: calc(2 * 1.5em); }
 .card .title .sub { line-height: 1.5; max-height: 1.5em; }
 html[data-theme] .hero h2 { line-height: 1.32; }
+/* pointer hover shows what a player button does */
+#player .pbtn:hover .plabel { visibility: visible; opacity: 1; color: #fff; }
