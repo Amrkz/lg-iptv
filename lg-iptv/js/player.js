@@ -895,7 +895,15 @@ const Player = (() => {
     UI.showScreen('player');
     startCurrent();
     lastRowBtn = null;
-    showOverlay(B.play);
+    startClean(); // the picture starts clean; a key press or a mouse move brings the controls
+  }
+
+  function startClean() {
+    hideBanner();
+    forceHideOverlay();
+    miniEl.classList.add('hide');
+    const a = document.activeElement;
+    if (a && a.blur && a !== document.body) a.blur();
   }
 
   function playIndex(i, auto) {
@@ -909,7 +917,7 @@ const Player = (() => {
     ctx.index = i;
     startCurrent();
     if (ctx.type === 'live') showBanner();
-    else if (!auto) showOverlay(B.play);
+    else if (!auto) startClean();
   }
 
   function stop() {
