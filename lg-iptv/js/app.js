@@ -14,6 +14,7 @@ const App = (() => {
 
   function setActiveNav(kind) {
     UI.$$('.navbtn').forEach(b => b.classList.toggle('active', b.dataset.cat === kind));
+    if (kind !== 'recent' && typeof hideRecentTabs === 'function') hideRecentTabs();
     try { updateBentoLayout(); } catch (e) {}
   }
 
@@ -1001,6 +1002,36 @@ const App = (() => {
   }
 
   // ---------- recent: pick up where the viewer left off ----------
+  let recentTab = 'series';
+  function recentTabsEl() {
+    let el = document.getElementById('rtabs');
+    if (!el) { el = document.createElement('div'); el.id = 'rtabs'; el.className = 'rtabs'; document.getElementById('home').appendChild(el); }
+    return el;
+  }
+  function hideRecentTabs() {
+    const el = document.getElementById('rtabs');
+    if (el) el.classList.remove('on');
+    rows().classList.remove('with-rtabs');
+  }
+  function showRecentTabs(cats) {
+    const el = recentTabsEl();
+    el.innerHTML = '';
+    cats.forEach(c => {
+      const b = document.createElement('button');
+      b.className = 'rtab' + (c.kind === recentTab ? ' active' : '');
+      b.dataset.kind = c.kind;
+      b.tabIndex = 0;
+      b.textContent = c.category_name;
+      b.addEventListener('click', () => { recentTab = c.kind; showRecent(false); focusRecentTab(); });
+      el.appendChild(b);
+    });
+    el.classList.add('on');
+    rows().classList.add('with-rtabs');
+  }
+  function focusRecentTab() {
+    const b = UI.$('#rtabs .rtab.active') || UI.$('#rtabs .rtab');
+    if (b) b.focus();
+  }
   // Three clear shelves: Live TV, Movies, Series. Series episodes collapse into one series card.
   function showRecent(refocus) {
     loadId++;
@@ -1020,10 +1051,15 @@ const App = (() => {
     if (series.length) { cats.push({ category_id: '__series', category_name: tr('Series'), kind: 'series', limit: 20 }); map.__series = series; }
     if (!cats.length) {
       slides = [];
+      hideRecentTabs();
       UI.setMessage(rows(), tr('Nothing to resume yet. Movies and episodes you start, and channels you watch, will show up here.'));
       return;
     }
-    render(cats, map, 'recent');
+    // vertical tabs: one department at a time
+    if (!cats.some(c => c.kind === recentTab)) recentTab = cats[0].kind;
+    const pick = cats.filter(c => c.kind === recentTab).map(c => Object.assign({}, c, { grid: true, limit: 60 }));
+    render(pick, map, 'recent');
+    showRecentTabs(cats);
     slides = live.concat(movies, series).slice(0, 6);
     slideKind = 'recent';
     slideIdx = 0;
@@ -1178,7 +1214,21 @@ const App = (() => {
         if (n) n.focus();
         return true;
       }
+      if (dir === 'DOWN' && currentKind === 'recent' && document.querySelector('#rtabs.on')) { focusRecentTab(); return true; }
       if (dir === 'DOWN') { focusAt(list[0], 0, list[0]._last || 0); return true; }
+      return true;
+    }
+    if (a.classList.contains('rtab')) {
+      const tabs = Array.from(document.querySelectorAll('#rtabs .rtab'));
+      const i = tabs.indexOf(a);
+      if (dir === 'UP' || dir === 'DOWN') {
+        const n = tabs[i + (dir === 'DOWN' ? 1 : -1)];
+        if (n) { recentTab = n.dataset.kind; showRecent(false); focusRecentTab(); }
+        else if (dir === 'UP') focusNav();
+        return true;
+      }
+      const into = I18n.rtl ? 'LEFT' : 'RIGHT';
+      if (dir === into) { focusAt(list[0], 0, 0); return true; }
       return true;
     }
     if (a.id === 'search-input') {
@@ -1198,6 +1248,8 @@ const App = (() => {
       if (ni >= 0 && ni < cards.length) {
         here.row._last = ni;
         place(cards[ni]);
+      } else if (ni < 0 && currentKind === 'recent' && document.querySelector('#rtabs.on')) {
+        focusRecentTab();
       }
       return true; // one icon only — never leak into the next line
     }

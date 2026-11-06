@@ -509,3 +509,13 @@ html[lang="ar"] #logout { font-size: 22px; padding: 10px 14px; }
 
 .clock { font: 700 26px var(--ui); color: var(--text-2); letter-spacing: 0.06em; margin-inline-end: 18px; min-width: 5.5em; text-align: center; }
 .confirm-input { width: 100%; margin: 14px 0 8px; padding: 16px 18px; font-size: 28px; border-radius: 10px; border: 2px solid rgba(255,255,255,0.18); background: #111; color: #fff; }
+
+/* Recent: vertical tabs (Live TV / Movies / Series) */
+.rtabs { display: none; position: absolute; z-index: 3; left: 60px; top: 560px; flex-direction: column; gap: 14px; }
+.rtabs.on { display: flex; }
+html[dir="rtl"] .rtabs { left: auto; right: 60px; }
+.rtab { min-width: 220px; padding: 18px 26px; border-radius: 16px; border: 2px solid transparent; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); font-size: 26px; font-weight: 600; text-align: start; cursor: pointer; }
+.rtab.active { background: rgba(255,255,255,0.16); color: #fff; border-inline-start: 6px solid var(--accent, #e50914); }
+.rtab:focus { outline: none; border-color: #fff; color: #fff; transform: scale(1.04); }
+.rows.with-rtabs { padding-left: 320px; }
+html[dir="rtl"] .rows.with-rtabs { padding-left: 0; padding-right: 320px; }
