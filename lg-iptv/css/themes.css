@@ -1274,3 +1274,9 @@ html[data-theme="clay"] .swatch-clay {
   border-radius: 14px;
   box-shadow: inset 3px 3px 6px rgba(140,160,200,0.35), inset -3px -3px 6px rgba(255,255,255,0.9);
 }
+
+/* Fix: the full-screen rows layer sits above the hero, so it must never paint a background.
+   Each theme's page colour lives on #home instead, behind the hero. */
+html[data-theme] #home > .rows, html[data-theme] #home > .rows .row { background: transparent !important; }
+html[data-theme="neo"] #home { background: #fff5e8; }
+html[data-theme="swiss"] #home { background: #fff; }
