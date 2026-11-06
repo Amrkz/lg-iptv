@@ -1033,7 +1033,9 @@ const App = (() => {
   let recentIdleT = null;
   function armRecentRotate() {
     clearTimeout(recentIdleT);
-    recentIdleT = setTimeout(rotateRecentTab, RECENT_ROTATE_MS);
+    // stay long enough for the hero to show each of this tab's featured titles once
+    const n = (slideKind === 'recent' && slides.length) ? slides.length : 1;
+    recentIdleT = setTimeout(rotateRecentTab, Math.max(RECENT_ROTATE_MS, n * SLIDE_MS));
   }
   function rotateRecentTab() {
     const tabs = Array.from(document.querySelectorAll('#rtabs.on .rtab'));
@@ -1077,10 +1079,11 @@ const App = (() => {
     const pick = cats.filter(c => c.kind === recentTab).map(c => Object.assign({}, c, { grid: true, limit: 60 }));
     render(pick, map, 'recent');
     showRecentTabs(cats);
-    armRecentRotate();
-    slides = live.concat(movies, series).slice(0, 6);
+    // hero shows the selected tab's titles only (4 each), then the tabs move on
+    slides = (map['__' + recentTab] || []).slice(0, 4);
     slideKind = 'recent';
     slideIdx = 0;
+    armRecentRotate();
     if (!refocus) startSlideshow(false);
     if (refocus) {
       const el = UI.$('.card') || UI.$('.navbtn.active');
