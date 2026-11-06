@@ -337,10 +337,11 @@ const Player = (() => {
     if (b && b.length) sbBuf.style.width = clamp(b.end(b.length - 1) / video.duration, 0, 1) * 100 + '%';
   }
 
+  let lastScrub = { n: 0, ts: 0 };
   function scrubStep(sign) {
     if (!hasDuration()) return;
     const now = Date.now();
-    if (!scrub) scrub = { pos: video.currentTime, n: 0, ts: 0, timer: null };
+    if (!scrub) scrub = { pos: video.currentTime, n: lastScrub.n, ts: lastScrub.ts, timer: null };
     scrub.n = now - scrub.ts < 450 ? scrub.n + 1 : 0; // key held / tapped fast -> bigger jumps
     scrub.ts = now;
     const step = SCRUB_STEPS[Math.min(scrub.n, SCRUB_STEPS.length - 1)];
@@ -356,6 +357,7 @@ const Player = (() => {
     clearTimeout(scrub.timer);
     learnIntro(video.currentTime, scrub.pos);
     video.currentTime = scrub.pos;
+    lastScrub = { n: scrub.n, ts: scrub.ts }; // rapid FF/RW presses keep speeding up
     scrub = null;
     sbBubble.classList.add('hidden');
     updateTime();
@@ -1751,12 +1753,12 @@ const Player = (() => {
 
     if (k === KEYS.BACK) { e.preventDefault(); onBackKey(true); return; }
     if (k === KEYS.STOP) { e.preventDefault(); back(); return; }
-    if (k === KEYS.PLAY) { e.preventDefault(); resumePlay(); showOverlay(); return; }
+    if (k === KEYS.PLAY) { e.preventDefault(); togglePlay(); showOverlay(); return; } // Play also pauses
     if (k === KEYS.PLAY_PAUSE) { e.preventDefault(); togglePlay(); showOverlay(); return; } // one key that does both (some remotes only have this)
     if (k === KEYS.PAUSE) { e.preventDefault(); wantPlay = false; video.pause(); return; }
     if (k === KEYS.FF || k === KEYS.RW) {
       e.preventDefault();
-      if (!isLive()) { showOverlay(seekbar); scrubStep(k === KEYS.FF ? 1 : -1); }
+      if (!isLive()) { showOverlay(seekbar); scrubStep(k === KEYS.FF ? 1 : -1); commitScrub(); } // jump right away on each press
       else if (k === KEYS.RW) startOver(); // live with replay: the programme on now, from its start
       return;
     }
