@@ -1521,11 +1521,15 @@ const App = (() => {
     UI.showScreen('home');
     setActiveNav(startSection()); // the menu shows the right tab while the list loads
     UI.setMessage(rows(), tr('Loading…'));
-    API.ensureLoaded().then(() => landing()).catch(e => {
-      API.clearConfig();
-      UI.showScreen('login');
-      UI.$('#login-err').textContent = (e && e.message) || tr('Could not restore session');
-    });
+    // stay signed in: if the server or network is slow (TV just woke up), keep retrying instead of logging out
+    let tries = 0;
+    (function restore() {
+      API.ensureLoaded().then(() => landing()).catch(e => {
+        tries++;
+        UI.setMessage(rows(), ((e && e.message) || tr('Could not restore session')) + '  \u2014  ' + tr('Retrying…'));
+        setTimeout(restore, Math.min(30000, 3000 * tries));
+      });
+    })();
   } else {
     UI.showScreen('login');
   }
