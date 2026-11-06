@@ -527,3 +527,11 @@ html[dir="rtl"] .rows.with-rtabs { padding-left: 0; padding-right: 320px; }
 .hero h2.t-xl { font-size: 60px; }
 html[data-theme] .hero h2.t-l { font-size: 76px; }
 html[data-theme] .hero h2.t-xl { font-size: 60px; }
+
+/* Arabic glyphs hang lower than Latin ones: give clipped text more line room so nothing is cut at the bottom */
+.hero h2 { line-height: 1.32; }
+.hero h2 span { max-height: calc(2 * 1.32em); padding-bottom: 0.08em; }
+.hero p { line-height: 1.6; max-height: 3.3em; }
+.card .title > span:not(.sub) { line-height: 1.5; max-height: calc(2 * 1.5em); }
+.card .title .sub { line-height: 1.5; max-height: 1.5em; }
+html[data-theme] .hero h2 { line-height: 1.32; }
