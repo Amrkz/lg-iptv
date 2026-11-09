@@ -12,7 +12,8 @@ var guard = require('./guard');
 var MIN_FREE = 1024 * 1024 * 1024; // keep at least 1 GB free after a download
 var MAX_JOBS = 80;
 var META = 'index.json';
-var UAS = ['LTVPlayer', 'VLC/3.0.21 LibVLC/3.0.21', 'IPTVSmartersPlayer'];
+// One identity only; see UAS in proxy.js.
+var UAS = ['LTVPlayer'];
 
 function mkdirp(dir) {
   try { fs.mkdirSync(dir); return true; } catch (e) {
@@ -197,8 +198,34 @@ function create(opts) {
     return { jobs: list, active: active, dir: dir || '' };
   }
 
+  // Many accounts allow one connection, and the provider answers a second one
+  // with 409. opts.busy() is true while the player has a stream open; the queue
+  // waits for it, and a running download steps aside when playback starts.
+  var waitTimer = null;
+  function held() {
+    try { return !!(opts.busy && opts.busy()); } catch (e) { return false; }
+  }
+  function waitForPlayback() {
+    if (waitTimer) return;
+    waitTimer = setTimeout(function () { waitTimer = null; pump(); }, 5000);
+  }
+  function yieldToPlayback() {
+    if (!active) return;
+    var j = jobs[active];
+    active = null;
+    if (!j) return;
+    log('yield to playback ' + String(j.id).slice(0, 8));
+    j.status = 'queued';
+    cleanupStreams(j);
+    if (queue.indexOf(j.id) < 0) queue.unshift(j.id);
+    persist();
+    emit();
+    waitForPlayback();
+  }
+
   function pump() {
     if (active || !queue.length) { emit(); return; }
+    if (held()) { waitForPlayback(); emit(); return; }
     var id = queue.shift();
     var j = jobs[id];
     if (!j || (j.status !== 'queued' && j.status !== 'paused')) { pump(); return; }
@@ -288,7 +315,7 @@ function create(opts) {
           if (settled) return;
           settled = true;
           cleanupStreams(j);
-          if (j.status === 'paused' || j.status === 'canceled') { active = null; persist(); emit(); pump(); return; }
+          if (j.status === 'paused' || j.status === 'canceled' || j.status === 'queued') { if (active === j.id) active = null; persist(); emit(); pump(); return; }
           if (j.total > 0 && j.bytes < j.total * 0.98) {
             fail(j, 'incomplete');
             return;
@@ -305,7 +332,7 @@ function create(opts) {
         if (settled) return;
         settled = true;
         cleanupStreams(j);
-        if (j.status === 'paused' || j.status === 'canceled') { active = null; persist(); emit(); pump(); return; }
+        if (j.status === 'paused' || j.status === 'canceled' || j.status === 'queued') { if (active === j.id) active = null; persist(); emit(); pump(); return; }
         fail(j, String(err.message || err));
       });
       out.on('error', function (err) {
@@ -320,7 +347,7 @@ function create(opts) {
     req.on('error', function (err) {
       if (settled) return;
       settled = true;
-      if (j.status === 'paused' || j.status === 'canceled') { active = null; persist(); emit(); pump(); return; }
+      if (j.status === 'paused' || j.status === 'canceled' || j.status === 'queued') { if (active === j.id) active = null; persist(); emit(); pump(); return; }
       fail(j, String(err.message || err));
     });
     j._req = req;
@@ -518,6 +545,7 @@ function create(opts) {
       });
     },
     start: start,
+    yieldToPlayback: yieldToPlayback,
     pause: pause,
     resume: resume,
     cancel: cancel,

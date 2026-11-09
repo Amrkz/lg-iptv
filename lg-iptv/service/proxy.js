@@ -16,13 +16,30 @@ var crypto = require('crypto');
 var URL = require('url').URL;
 var guard = require('./guard');
 
+// One identity only. A 409 from the provider is not about the player name: it
+// means the account's stream slot is taken (many plans allow one connection),
+// so trying other names only multiplies the requests.
 var UAS = [
-  'LTVPlayer',
-  'VLC/3.0.21 LibVLC/3.0.21',
-  'IPTVSmartersPlayer',
-  'Lavf/61.1.100'
+  'LTVPlayer'
 ];
 var uaIndex = 0;
+// The provider can keep counting a connection for a moment after it closes, so
+// a 409 is asked again after these waits before it is passed on to the player.
+var BUSY_WAITS = [2000, 4000];
+// After a final 409, answer 409 locally for a few seconds, so a burst of player
+// requests reaches the provider once.
+var REFUSED_MS = 5000;
+var refusedUntil = {};
+// Playback and downloads share the account's stream slot. Playback wins: while
+// the player has a stream open, or asked for one in the last 30 s, downloads wait.
+var playing = 0;
+var lastPlay = 0;
+function playbackBusy() {
+  return playing > 0 || Date.now() - lastPlay < 30000;
+}
+function upstreamKey(target) {
+  try { return new URL(target).host; } catch (e) { return ''; }
+}
 var boundPort = 0;
 var boundHosts = [];
 var openServers = [];
@@ -237,21 +254,19 @@ function fetchOnce(target, ua, range, cb, wait) {
   go(target);
 }
 
-function fetchBest(target, range, cb, wait) {
-  var start = uaIndex;
+// alive() is false once the player has gone away; no point asking again then.
+function fetchBest(target, range, cb, wait, alive) {
   var i = 0;
   function attempt() {
-    var ua = UAS[(start + i) % UAS.length];
-    fetchOnce(target, ua, range, function (err, res, finalUrl) {
+    if (alive && !alive()) { cb(new Error('client gone')); return; }
+    fetchOnce(target, UAS[uaIndex], range, function (err, res, finalUrl) {
       if (err) { cb(err); return; }
       var code = res.statusCode || 0;
-      if ((code === 403 || code === 409) && i < UAS.length - 1) {
+      if (code === 409 && i < BUSY_WAITS.length) {
         res.resume();
-        i++;
-        attempt();
+        setTimeout(attempt, BUSY_WAITS[i++]);
         return;
       }
-      if (code > 0 && code < 400) uaIndex = (start + i) % UAS.length;
       cb(null, res, finalUrl);
     }, wait);
   }
@@ -275,6 +290,7 @@ var downloads = null;
 function dls() {
   if (!downloads) {
     downloads = require('./download').create({
+      busy: playbackBusy,
       dirs: [process.env.KAYAN_DL_DIR, '/media/developer/apps/usr/palm/applications/com.amrkz.kayaniptv/downloads', '/media/developer/temp/kayan-dl', '/var/tmp/kayan-dl', '/tmp/kayan-dl']
     });
   }
@@ -395,6 +411,19 @@ function onRequest(req, res) {
   if (pathOnly === '/img') { pictures().serve(req, res, target, queryValue(search, 'w')); return; }
   var asked = Date.now();
   var wait = /\.(m3u8|ts|m4s|aac)$/i.test(pathOnly) ? 20000 : 45000; // a playlist or segment is quick; a movie file may not be
+  var gone = false;
+  res.on('close', function () { gone = true; });
+  // a running download holds the account's stream slot; give it to the player
+  lastPlay = Date.now();
+  if (downloads && downloads.yieldToPlayback) downloads.yieldToPlayback();
+  var key = upstreamKey(target);
+  var left = key && refusedUntil[key] ? refusedUntil[key] - Date.now() : 0;
+  if (left > 0) {
+    note(req.method + ' ' + pathOnly + ' ' + mask(target) + ' -> 409 local (provider refused, ' + Math.ceil(left / 1000) + 's left)');
+    res.writeHead(409, { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': String(Math.ceil(left / 1000)) });
+    res.end('refused');
+    return;
+  }
   fetchBest(target, req.headers.range, function (err, up, finalUrl) {
     if (err || !up) {
       var why = err ? String(err.message || err) : 'upstream';
@@ -406,7 +435,14 @@ function onRequest(req, res) {
       }
       return;
     }
+    // The player left while the provider was answering. Piping into a closed
+    // response would leave this provider connection open, holding the stream slot.
+    if (gone) { if (up.destroy) up.destroy(); return; }
     var code = up.statusCode || 502;
+    if (key) {
+      if (code === 409) refusedUntil[key] = Date.now() + REFUSED_MS;
+      else if (code < 400) delete refusedUntil[key];
+    }
     if (!/\.(ts|m4s|aac)$/i.test(pathOnly)) {
       note(req.method + ' ' + pathOnly + ' ' + mask(target) + ' range=' + (req.headers.range || '-') + ' -> ' + code +
         ' type=' + (up.headers['content-type'] || '-') + ' len=' + (up.headers['content-length'] || '-') +
@@ -453,10 +489,21 @@ function onRequest(req, res) {
     // resume() would read the whole movie to throw it away, and hold the provider connection while it does.
     if (req.method === 'HEAD') { if (up.destroy) up.destroy(); res.end(); return; }
     up.pipe(res);
-    var stop = function () { if (up.destroy) up.destroy(); };
+    playing++;
+    var counted = true;
+    var done = function () {
+      if (!counted) return;
+      counted = false;
+      playing--;
+      lastPlay = Date.now();
+    };
+    var stop = function () { done(); if (up.destroy) up.destroy(); };
     req.on('close', stop);
     res.on('close', stop);
-  }, wait);
+    res.on('finish', done);
+    up.on('end', done);
+    up.on('error', done);
+  }, wait, function () { return !gone; });
 }
 
 function lanAddrs() {

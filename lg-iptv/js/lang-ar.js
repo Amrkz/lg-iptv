@@ -121,6 +121,7 @@ I18n.add('ar', {
   'The provider server has a problem.': 'خادم المزوّد يواجه مشكلة.',
   'The provider answered, but this TV cannot decode this stream format.': 'ردّ المزوّد، لكن هذا التلفاز لا يستطيع تشغيل صيغة هذا البث.',
   'The on-TV player was refused too.': 'رُفض أيضًا مشغّل التلفاز.',
+  'The account is busy: another player or download is using its stream. Close it, then press OK.': 'الحساب مشغول: مشغّل آخر أو تنزيل يستخدم البث. أغلقه ثم اضغط موافق.',
   'The on-TV player did not start, so this is still the browser.': 'لم يبدأ مشغّل التلفاز، لذلك ما زال المتصفح هو المستخدم.',
   'This replay cannot be played.': 'لا يمكن تشغيل هذه الإعادة.',
   'Press Back to return to live.': 'اضغط رجوع للعودة إلى البث المباشر.',

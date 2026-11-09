@@ -725,16 +725,19 @@ const App = (() => {
       if (id !== loadId) return;
       const built = episodesFromInfo(series, info);
       currentEpisodes = built.flat;
+      // The season download card goes last. As the first card it looked like
+      // an episode, took the initial focus, and OK queued the whole season.
       built.cats.forEach(c => {
         const eps = built.map[c.category_id] || [];
-        built.map[c.category_id] = [{
+        if (!eps.length) return;
+        built.map[c.category_id] = eps.concat([{
           name: tr('Download season'),
           cat: null,
           _dlAction: 'season',
           _seasonKey: c.category_id,
           _seasonEps: eps,
           icon: series.cover || ''
-        }].concat(eps);
+        }]);
       });
       render(built.cats, built.map, 'episode');
       const firstCard = UI.$('.card');

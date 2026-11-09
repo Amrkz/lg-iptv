@@ -672,9 +672,9 @@ const Player = (() => {
 
   function maybeRetry(url, status) {
     // 409 from the browser is a refusal of its User-Agent, and retrying it just hits the provider again.
-    // Through the on-TV player the identity is already right, so a 409 there is the provider not being ready
-    // (it answered the same movie normally a minute later), and a movie is worth a few more tries.
-    // 429, 458 and 509 are the limit responses, and those can clear on their own.
+    // Through the on-TV player the identity is already right, so a 409 there means the account's stream
+    // slot is taken (one connection on many plans). It frees up when the other stream closes, so a movie
+    // is worth a few spaced tries. 429, 458 and 509 are the limit responses, and those can clear on their own.
     const notReady = status === 409 && !isLive() && viaHelper(startUrl);
     const max = notReady ? NOT_READY_MAX : BUSY_RETRY_MAX; // that refusal lasted over a minute on the real provider
     if ((status !== 429 && status !== 458 && status !== 509 && !notReady) || busyRetries >= max) return '';
@@ -695,8 +695,9 @@ const Player = (() => {
     if (status >= 200 && status < 300) return tr('The provider answered, but this TV cannot decode this stream format.');
     if (status === 409) {
       var via = viaHelper(startUrl);
-      var why = '. ' + (via ? tr('The on-TV player was refused too.') : tr('The on-TV player did not start, so this is still the browser.'));
-      if (!via && window.API && API.proxyError) why += ' (' + API.proxyError + ')';
+      if (via) return head + '. ' + tr('The account is busy: another player or download is using its stream. Close it, then press OK.');
+      var why = '. ' + tr('The on-TV player did not start, so this is still the browser.');
+      if (window.API && API.proxyError) why += ' (' + API.proxyError + ')';
       return head + why + again;
     }
     if (status) return head + '.' + again;
