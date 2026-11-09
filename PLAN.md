@@ -90,7 +90,7 @@ Back, Play/Pause, −10 s / +10 s, seek bar with hold-to-speed-up, mini progress
 
 ## Phases
 
-Each phase ends with a build, an install, the proxy check (healthy state: `0.0.0.0:18491` LISTEN), and a test on the TV by the user before the next phase starts.
+Each phase ends with a build, an install, the helper check (healthy state: port `18491` listening on the TV's LAN address and on `127.0.0.1`; `0.0.0.0` only if the TV reports no LAN address), and a test on the TV by the user before the next phase starts.
 
 ### Phase 0 — Test build (removed afterwards)
 

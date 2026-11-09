@@ -11,15 +11,16 @@ var subscribers = {};
 var dlSubs = {};
 
 function log(line) {
-  try { fs.appendFileSync('/tmp/lumio-proxy.log', String(line) + '\n'); } catch (e) {}
+  try { fs.appendFileSync('/tmp/kayan-proxy.log', String(line) + '\n'); } catch (e) {}
 }
 
 function answer(message, err) {
-  if (err || !port) {
+  var tok = proxy.token();
+  if (err || !port || !tok) {
     message.respond({ returnValue: false, errorText: err ? String(err.message || err) : 'proxy failed' });
     return;
   }
-  var payload = { returnValue: true, port: port };
+  var payload = { returnValue: true, port: port, token: tok };
   if (message.isSubscription) {
     payload.subscribed = true;
     subscribers[message.uniqueToken] = message;
@@ -36,6 +37,36 @@ function ready(err, p) {
   pending.forEach(function (message) { answer(message, err); });
 }
 
+function keepAlive() {
+  if (service.activityManager && service.activityManager.create) {
+    try { service.activityManager.create('keepAlive', function () {}); } catch (e) { log('activity ' + e); }
+  }
+}
+
+// A helper started earlier (boot.js) may already hold the port. Its token is
+// the file written at listen time. Wait briefly so we return that token
+// instead of opening a second port.
+function openProxy() {
+  proxy.listen(18491, function (err, p) {
+    if (!err && p) {
+      ready(null, p);
+      keepAlive();
+      return;
+    }
+    if (err && err.code === 'EADDRINUSE') {
+      var tries = 0;
+      var spin = function () {
+        if (proxy.token()) { ready(null, 18491); return; }
+        if (++tries > 20) { ready(err); return; }
+        setTimeout(spin, 50);
+      };
+      spin();
+      return;
+    }
+    ready(err || new Error('proxy failed'));
+  });
+}
+
 function ensureListen(cb) {
   if (port) { cb(null, port); return; }
   waiters.push({
@@ -44,12 +75,7 @@ function ensureListen(cb) {
   });
   if (starting) return;
   starting = true;
-  proxy.listen(18491, function (err, p) {
-    ready(err, p);
-    if (!err && p && service.activityManager && service.activityManager.create) {
-      try { service.activityManager.create('keepAlive', function () {}); } catch (e) { log('activity ' + e); }
-    }
-  });
+  openProxy();
 }
 
 function dls() { return proxy.dls(); }
@@ -71,12 +97,7 @@ service.register('alive', function (message) {
   waiters.push(message);
   if (starting) return;
   starting = true;
-  proxy.listen(18491, function (err, p) {
-    ready(err, p);
-    if (!err && p && service.activityManager && service.activityManager.create) {
-      try { service.activityManager.create('keepAlive', function () {}); } catch (e) { log('activity ' + e); }
-    }
-  });
+  openProxy();
 }, function (message) {
   if (message && message.uniqueToken) delete subscribers[message.uniqueToken];
 });

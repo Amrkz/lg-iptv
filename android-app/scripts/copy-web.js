@@ -2,8 +2,13 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const root = path.join(__dirname, '..');
-const src = '/workspace/lg-iptv/lg-iptv';
+// lg-iptv/ sits next to android-app/ in this repo. Do not hard-code a machine path.
+const src = path.resolve(__dirname, '..', '..', 'lg-iptv');
 const dest = path.join(root, 'www');
+if (!fs.existsSync(path.join(src, 'index.html'))) {
+  console.error('Web app not found at ' + src);
+  process.exit(1);
+}
 const V = '20261106070000';
 execSync(`rm -rf "${dest}" && mkdir -p "${dest}" && cp -a "${src}/." "${dest}/" && rm -rf "${dest}/service"`, { stdio: 'inherit' });
 let html = fs.readFileSync(path.join(dest, 'index.html'), 'utf8');
@@ -32,6 +37,6 @@ if (!html.includes('android-shim.js')) {
 } else {
   html = html.replace(/js\/android-shim\.js\?v=[^"]+/g, 'js/android-shim.js?v=' + V);
 }
-html = html.replace(/js\/(i18n|lang-ar|keys|api|ui|player|settings|downloads|app)\.js\?v=[^"]+/g, 'js/$1.js?v=' + V);
+html = html.replace(/js\/(i18n|lang-ar|keys|api|ui|player|pinhash|settings|downloads|app)\.js\?v=[^"]+/g, 'js/$1.js?v=' + V);
 fs.writeFileSync(path.join(dest, 'index.html'), html);
 console.log('www synced', V);

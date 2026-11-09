@@ -7,6 +7,7 @@ var http = require('http');
 var https = require('https');
 var URL = require('url').URL;
 var child = require('child_process');
+var guard = require('./guard');
 
 var MIN_FREE = 1024 * 1024 * 1024; // keep at least 1 GB free after a download
 var MAX_JOBS = 80;
@@ -48,15 +49,6 @@ function extOf(url, type) {
   return 'bin';
 }
 
-function allowed(target) {
-  var parsed;
-  try { parsed = new URL(target); } catch (e) { return null; }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
-  var host = parsed.hostname;
-  if (host === '127.0.0.1' || host === 'localhost' || host === '::1') return null;
-  return parsed;
-}
-
 function create(opts) {
   var dir = pickDir(opts.dirs || []);
   var jobs = {};          // id -> job
@@ -66,7 +58,7 @@ function create(opts) {
   var uaIndex = 0;
 
   function log(line) {
-    try { fs.appendFileSync('/tmp/lumio-proxy.log', 'dl ' + line + '\n'); } catch (e) {}
+    try { fs.appendFileSync('/tmp/kayan-proxy.log', 'dl ' + line + '\n'); } catch (e) {}
   }
 
   function persist() {
@@ -149,24 +141,20 @@ function create(opts) {
     });
   }
 
-  function headSize(url, cb) {
-    var parsed = allowed(url);
-    if (!parsed) { cb(new Error('bad url')); return; }
-    var lib = parsed.protocol === 'https:' ? https : http;
-    var ua = UAS[uaIndex % UAS.length];
-    var req = lib.request({
-      protocol: parsed.protocol, hostname: parsed.hostname,
-      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-      path: parsed.pathname + parsed.search, method: 'HEAD',
-      headers: { 'User-Agent': ua, 'Accept': '*/*' },
-      rejectUnauthorized: false
-    }, function (res) {
+  function headSize(url, cb, hops) {
+    if ((hops || 0) > 5) { cb(new Error('bad url')); return; }
+    guard.checkUrl(url, function (err, info) {
+      if (err || !info) { cb(new Error('bad url')); return; }
+      var lib = info.protocol === 'https:' ? https : http;
+      var ua = UAS[uaIndex % UAS.length];
+      var headers = { 'User-Agent': ua, 'Accept': '*/*' };
+      var req = lib.request(guard.requestOptions(info, 'HEAD', headers), function (res) {
       var code = res.statusCode || 0;
       if ([301, 302, 303, 307, 308].indexOf(code) >= 0 && res.headers.location) {
         res.resume();
         var next;
         try { next = new URL(res.headers.location, url).toString(); } catch (e) { cb(e); return; }
-        headSize(next, cb);
+        headSize(next, cb, (hops || 0) + 1);
         return;
       }
       res.resume();
@@ -177,9 +165,10 @@ function create(opts) {
         acceptRanges: /bytes/i.test(String(res.headers['accept-ranges'] || ''))
       });
     });
-    req.setTimeout(12000, function () { req.destroy(); cb(new Error('timeout')); });
-    req.on('error', function (err) { cb(err); });
-    req.end();
+      req.setTimeout(12000, function () { req.destroy(); cb(new Error('timeout')); });
+      req.on('error', function (err2) { cb(err2); });
+      req.end();
+    });
   }
 
   function filePath(id, ext) { return path.join(dir, id + '.' + (ext || 'mp4')); }
@@ -222,32 +211,32 @@ function create(opts) {
     j.error = '';
     emit();
     persist();
-    var parsed = allowed(j.url);
-    if (!parsed || !dir) {
+    if ((j._hops || 0) > 5 || !dir) {
       j.status = 'error'; j.error = 'bad url'; active = null; persist(); emit(); pump(); return;
     }
-    var lib = parsed.protocol === 'https:' ? https : http;
-    var ua = UAS[uaIndex % UAS.length];
-    var headers = { 'User-Agent': ua, 'Accept': '*/*' };
-    var existing = 0;
-    try {
-      if (j.path && fs.existsSync(j.path)) existing = fs.statSync(j.path).size;
-    } catch (e) { existing = 0; }
-    if (existing > 0 && j.total > 0 && existing >= j.total) {
-      j.bytes = j.total; j.status = 'done'; active = null; persist(); emit(); pump(); return;
-    }
-    if (existing > 0) headers.Range = 'bytes=' + existing + '-';
-    var settled = false;
-    var req = lib.request({
-      protocol: parsed.protocol, hostname: parsed.hostname,
-      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-      path: parsed.pathname + parsed.search, method: 'GET',
-      headers: headers, rejectUnauthorized: false
-    }, function (res) {
+    guard.checkUrl(j.url, function (chkErr, info) {
+      if (active !== j.id || j.status !== 'running') return;
+      if (chkErr || !info) {
+        j.status = 'error'; j.error = 'bad url'; active = null; persist(); emit(); pump(); return;
+      }
+      var lib = info.protocol === 'https:' ? https : http;
+      var ua = UAS[uaIndex % UAS.length];
+      var headers = { 'User-Agent': ua, 'Accept': '*/*' };
+      var existing = 0;
+      try {
+        if (j.path && fs.existsSync(j.path)) existing = fs.statSync(j.path).size;
+      } catch (e) { existing = 0; }
+      if (existing > 0 && j.total > 0 && existing >= j.total) {
+        j.bytes = j.total; j.status = 'done'; active = null; persist(); emit(); pump(); return;
+      }
+      if (existing > 0) headers.Range = 'bytes=' + existing + '-';
+      var settled = false;
+      var req = lib.request(guard.requestOptions(info, 'GET', headers), function (res) {
       var code = res.statusCode || 0;
       if ([301, 302, 303, 307, 308].indexOf(code) >= 0 && res.headers.location) {
         res.resume();
-        try { j.url = new URL(res.headers.location, j.url).toString(); } catch (e) {}
+        j._hops = (j._hops || 0) + 1;
+        try { j.url = new URL(res.headers.location, j.url).toString(); } catch (e) { fail(j, 'bad url'); return; }
         active = null;
         runJob(j);
         return;
@@ -336,6 +325,7 @@ function create(opts) {
     });
     j._req = req;
     req.end();
+    });
   }
 
   function cleanupStreams(j) {
@@ -358,11 +348,13 @@ function create(opts) {
   function start(meta, force, cb) {
     if (!dir) { cb(null, { ok: false, block: true, reason: 'nodir' }); return; }
     var url = meta && meta.url;
-    if (!url || !allowed(url)) { cb(null, { ok: false, block: true, reason: 'badurl' }); return; }
+    if (!url) { cb(null, { ok: false, block: true, reason: 'badurl' }); return; }
     if (/\/live\//i.test(url) || meta.kind === 'live') {
       cb(null, { ok: false, block: true, reason: 'live' });
       return;
     }
+    guard.checkUrl(url, function (chkErr) {
+      if (chkErr) { cb(null, { ok: false, block: true, reason: 'badurl' }); return; }
     var id = meta.id || idOf(url);
     var existing = jobs[id];
     if (existing && (existing.status === 'done' || existing.status === 'running' || existing.status === 'queued')) {
@@ -411,6 +403,7 @@ function create(opts) {
         pump();
         cb(null, { ok: true, warn: gate.warn, reason: gate.reason, need: gate.need, free: gate.free, space: gate.space, job: publicJob(j) });
       });
+    });
     });
   }
 

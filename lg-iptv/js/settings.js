@@ -35,13 +35,58 @@ const Settings = (() => {
   ];
 
   function get(key) {
+    if (key === 'pin') return pinIsSet() ? '1' : '';
     const v = API.pref('set_' + key);
     return (v === null || v === undefined) ? DEF[key] : v;
   }
   function set(key, val) {
+    if (key === 'pin') { setPin(val); apply(key, val); return val; }
     API.pref('set_' + key, val);
     apply(key, val);
     return val;
+  }
+
+  function randomSalt() {
+    const bytes = [];
+    if (window.crypto && crypto.getRandomValues) {
+      const a = new Uint8Array(16);
+      crypto.getRandomValues(a);
+      for (let i = 0; i < a.length; i++) bytes.push(a[i]);
+    } else {
+      for (let j = 0; j < 16; j++) bytes.push(Math.floor(Math.random() * 256));
+    }
+    return bytes.map(b => ('0' + b.toString(16)).slice(-2)).join('');
+  }
+  function setPin(pin) {
+    const digits = String(pin || '').replace(/\D/g, '').slice(0, 4);
+    if (digits.length !== 4) {
+      API.pref('set_pin', '');
+      API.pref('set_pinHash', '');
+      API.pref('set_pinSalt', '');
+      return '';
+    }
+    // Leave a stored PIN in place if the hash helper did not load, so the lock stays shut.
+    if (!window.PinHash || !PinHash.hashPin) return '';
+    const salt = randomSalt();
+    const hash = PinHash.hashPin(digits, salt);
+    if (!hash || hash.length < 64) return '';
+    API.pref('set_pinHash', hash);
+    API.pref('set_pinSalt', salt);
+    API.pref('set_pin', '');
+    return digits;
+  }
+  function migratePin() {
+    if (migratePin.done) return;
+    migratePin.done = true;
+    const legacy = API.pref('set_pin');
+    if (legacy == null || legacy === '') return;
+    const s = String(legacy);
+    if (/^\d{4}$/.test(s)) setPin(s);
+    else API.pref('set_pin', '');
+  }
+  function pinIsSet() {
+    migratePin();
+    return !!(API.pref('set_pinHash') && API.pref('set_pinSalt'));
   }
   function all() {
     const o = {};
@@ -172,10 +217,41 @@ const Settings = (() => {
     if (st.bg && get('subBg') === DEF.subBg) set('subBg', !!st.bg);
   }
 
+  function stripUrlSecrets(url) {
+    let s = String(url || '');
+    const hashAt = s.indexOf('#');
+    const frag = hashAt >= 0 ? s.slice(hashAt) : '';
+    if (hashAt >= 0) s = s.slice(0, hashAt);
+    s = s.replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/?#@]*@/i, '$1');
+    const q = s.indexOf('?');
+    if (q < 0) return s + frag;
+    const path = s.slice(0, q);
+    const keep = [];
+    s.slice(q + 1).split('&').forEach(part => {
+      if (!part) return;
+      let name = part.split('=')[0];
+      try { name = decodeURIComponent(name); } catch (e) {}
+      if (/^(password|passwd|pass|token|pin)$/i.test(name)) return;
+      keep.push(part);
+    });
+    return path + (keep.length ? '?' + keep.join('&') : '') + frag;
+  }
+  function publicProfile(p) {
+    return {
+      id: p.id, name: p.name, type: p.type,
+      server: p.server || '', user: p.user || '',
+      m3u: stripUrlSecrets(p.m3u || ''), ts: p.ts || 0
+    };
+  }
+
   function exportBackup() {
+    const settings = all();
+    delete settings.pin;
+    delete settings.pinHash;
+    delete settings.pinSalt;
     return JSON.stringify({
-      v: 1, app: 'Kayan IPTV', at: Date.now(),
-      settings: all(), profiles: getProfiles(),
+      v: 2, app: 'Kayan IPTV', at: Date.now(),
+      settings: settings, profiles: getProfiles().map(publicProfile),
       lang: (window.I18n && I18n.lang) || 'en',
       prefs: { aspect: API.pref('aspect'), subStyle: API.pref('subStyle'), audioLang: API.pref('audioLang'), subLang: API.pref('subLang'), section: API.pref('section') }
     });
@@ -185,7 +261,14 @@ const Settings = (() => {
     let data;
     try { data = JSON.parse(text); } catch (e) { return { ok: false, error: 'badjson' }; }
     if (!data || !data.settings) return { ok: false, error: 'badjson' };
-    Object.keys(data.settings).forEach(k => { if (Object.prototype.hasOwnProperty.call(DEF, k)) set(k, data.settings[k]); });
+    Object.keys(data.settings).forEach(k => {
+      if (k === 'pinHash' || k === 'pinSalt') return;
+      if (k === 'pin') {
+        if (/^\d{4}$/.test(String(data.settings.pin || ''))) set('pin', String(data.settings.pin));
+        return;
+      }
+      if (Object.prototype.hasOwnProperty.call(DEF, k)) set(k, data.settings[k]);
+    });
     if (Array.isArray(data.profiles)) saveProfiles(data.profiles);
     if (data.prefs) Object.keys(data.prefs).forEach(k => { if (data.prefs[k] != null) API.pref(k, data.prefs[k]); });
     if (data.lang) { try { localStorage.setItem('iptv_lang', data.lang); } catch (e) {} }
@@ -194,6 +277,11 @@ const Settings = (() => {
 
   function resetAll() {
     Object.keys(DEF).forEach(k => { try { localStorage.removeItem('iptv_pref_set_' + k); } catch (e) {} });
+    try {
+      localStorage.removeItem('iptv_pref_set_pinHash');
+      localStorage.removeItem('iptv_pref_set_pinSalt');
+    } catch (e) {}
+    migratePin.done = false;
     applyAll();
   }
 
@@ -203,10 +291,25 @@ const Settings = (() => {
     } catch (e) {}
   }
 
+  function sameHash(a, b) {
+    const x = String(a || '');
+    const y = String(b || '');
+    if (!x || x.length !== y.length) return false;
+    let n = 0;
+    for (let i = 0; i < x.length; i++) n |= x.charCodeAt(i) ^ y.charCodeAt(i);
+    return n === 0;
+  }
   function pinOk(code) {
-    const pin = String(get('pin') || '');
-    if (!get('pinOn') || !pin) return true;
-    return String(code || '') === pin;
+    migratePin();
+    if (!get('pinOn')) return true;
+    const digits = String(code || '').replace(/\D/g, '').slice(0, 4);
+    if (pinIsSet()) {
+      if (!window.PinHash || digits.length !== 4) return false;
+      return sameHash(PinHash.hashPin(digits, String(API.pref('set_pinSalt') || '')), String(API.pref('set_pinHash') || ''));
+    }
+    const legacy = String(API.pref('set_pin') || '');
+    if (/^\d{4}$/.test(legacy)) return digits === legacy;
+    return true;
   }
 
   function catLocked(name) {
@@ -319,7 +422,7 @@ const Settings = (() => {
 
     // 9. Backup / reset / about
     map.backup = [
-      item(tr('Export settings'), tr('Copy a backup code'), 'export'),
+      item(tr('Export settings'), tr('Passwords and PIN stay on this device'), 'export'),
       item(tr('Import settings'), tr('Paste a backup code'), 'import'),
       item(tr('Reset settings'), tr('Defaults only — playlists stay'), 'reset'),
       item(tr('About'), 'Kayan IPTV · v' + VERSION, 'about')

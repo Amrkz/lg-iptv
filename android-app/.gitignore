@@ -8,5 +8,6 @@ android/capacitor-cordova-android-plugins/build/
 android/local.properties
 android/.idea/
 keystore/*.jks
+keystore.properties
 keystore/*.keystore
 *.apk

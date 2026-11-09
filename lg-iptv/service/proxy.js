@@ -1,10 +1,20 @@
-// Local playback proxy. The TV browser cannot change its User-Agent, and this
-// provider answers 409 to that browser. Playback is fetched with a normal
-// player identity and handed to the video element on 127.0.0.1 only.
+// Local playback proxy. The TV browser cannot change its User-Agent, and many
+// providers answer that browser with HTTP 409. Playback is fetched with a
+// normal player identity and handed to the video element.
+//
+// Only this app may use the helper. Each start creates a random token, returned
+// on the Luna bus (not over the open network). Every HTTP request, including
+// the segment links rewritten into a playlist, must carry that token. The TV
+// player cannot set a header, so the token rides in the query string.
+// Upstream targets on loopback, link-local, or private LAN ranges are refused,
+// including after a redirect. TLS certificate checks stay off; see guard.js.
 var http = require('http');
 var https = require('https');
+var fs = require('fs');
+var crypto = require('crypto');
 // The TV runs Node 8.12. The global URL object arrived in Node 10.
 var URL = require('url').URL;
+var guard = require('./guard');
 
 var UAS = [
   'LTVPlayer',
@@ -14,21 +24,69 @@ var UAS = [
 ];
 var uaIndex = 0;
 var boundPort = 0;
+var boundHosts = [];
+var openServers = [];
+var token = '';
+var TOKEN_FILE = process.env.KAYAN_TOKEN_FILE || '/tmp/kayan-proxy.token';
 
-// One line per stream request in /tmp/lumio-proxy.log, with the login masked, so a movie that
-// will not start can be read back from the TV. The file restarts when it grows past 200 KB.
-var LOG_FILE = '/tmp/lumio-proxy.log';
+// One line per stream request in /tmp/kayan-proxy.log, with the login and the
+// helper token masked, so a movie that will not start can be read back from the TV.
+// The file restarts when it grows past 200 KB.
+var LOG_FILE = '/tmp/kayan-proxy.log';
 function mask(u) {
   return String(u || '')
     .replace(/\/(movie|series|live|timeshift)\/[^\/]+\/[^\/]+\//g, '/$1/*/*/')
-    .replace(/(username|password)=[^&]*/g, '$1=*');
+    .replace(/(username|password)=[^&]*/g, '$1=*')
+    .replace(/([?&](?:k|token)=)[^&\s]*/g, '$1*');
 }
 function note(line) {
   try {
-    var fs = require('fs');
     try { if (fs.statSync(LOG_FILE).size > 200000) fs.writeFileSync(LOG_FILE, ''); } catch (e) { /* no file yet */ }
     fs.appendFileSync(LOG_FILE, new Date().toISOString().slice(11, 19) + ' ' + line + '\n');
   } catch (e) { /* the log is a help, never a reason to fail */ }
+}
+
+function readTokenFile() {
+  try {
+    var existing = String(fs.readFileSync(TOKEN_FILE, 'utf8') || '').trim();
+    if (/^[a-f0-9]{48}$/.test(existing)) return existing;
+  } catch (e) { /* not written yet */ }
+  return '';
+}
+
+function tokenValue() {
+  if (token) return token;
+  var existing = readTokenFile();
+  if (existing) token = existing;
+  return token;
+}
+
+function ensureToken() {
+  if (token) return token;
+  var existing = readTokenFile();
+  if (existing) { token = existing; return token; }
+  var fresh = crypto.randomBytes(24).toString('hex');
+  try {
+    fs.writeFileSync(TOKEN_FILE, fresh, { flag: 'wx', mode: 384 });
+    try { fs.chmodSync(TOKEN_FILE, 384); } catch (e1) { /* umask already applied */ }
+    token = fresh;
+    return token;
+  } catch (e) {
+    existing = readTokenFile();
+    if (existing) { token = existing; return token; }
+    try { fs.writeFileSync(TOKEN_FILE, fresh, { mode: 384 }); token = fresh; } catch (e2) { token = fresh; }
+    return token;
+  }
+}
+
+function tokenOk(got) {
+  var a = String(got || '');
+  var b = tokenValue();
+  if (!b || a.length !== b.length) return false;
+  var n = 0;
+  var i;
+  for (i = 0; i < a.length; i++) n |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return n === 0;
 }
 
 function absUrl(ref, base) {
@@ -42,7 +100,10 @@ function wrap(abs, host, port) {
   else if (/\.mp4(\?|$)/i.test(abs)) path = 'seg.mp4';
   else if (/\.m4s(\?|$)/i.test(abs)) path = 'seg.m4s';
   else if (/\.(aac|mp3)(\?|$)/i.test(abs)) path = 'seg.aac';
-  return 'http://' + host + ':' + port + '/' + path + '?u=' + encodeURIComponent(abs);
+  var url = 'http://' + host + ':' + port + '/' + path + '?u=' + encodeURIComponent(abs);
+  var tok = tokenValue();
+  if (tok) url += '&k=' + encodeURIComponent(tok);
+  return url;
 }
 
 function rewrite(text, base, host, port) {
@@ -66,6 +127,10 @@ function rewrite(text, base, host, port) {
 // same host the playlist was requested on.
 function requestHost(req) {
   var host = String((req.headers && req.headers.host) || '127.0.0.1').replace(/:\d+$/, '');
+  if (host.charAt(0) === '[') {
+    var end = host.indexOf(']');
+    host = end >= 0 ? host.slice(1, end) : host;
+  }
   if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(host)) return '127.0.0.1';
   return host;
 }
@@ -77,6 +142,7 @@ function ownRequest(req) {
   if (remote && remote === local) return true;
   // The TV media pipeline often connects from a private address that is not
   // the address it connected to. Refusing that looks like a dead player.
+  // A token is still required, so another device on the LAN cannot call this.
   var m = remote.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
   if (!m) return false;
   var a = +m[1], b = +m[2];
@@ -97,13 +163,42 @@ function queryValue(search, name) {
   return '';
 }
 
-function allowed(target) {
-  var parsed;
-  try { parsed = new URL(target); } catch (e) { return null; }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
-  var host = parsed.hostname;
-  if (host === '127.0.0.1' || host === 'localhost' || host === '::1') return null;
-  return parsed;
+function presentedToken(req, search) {
+  var fromQuery = queryValue(search, 'k');
+  if (fromQuery) return fromQuery;
+  var headers = req.headers || {};
+  return String(headers['x-kayan-token'] || '');
+}
+
+// The page origin on webOS is an opaque file origin ("null") or a non-http
+// app scheme. A normal website is refused. Missing Origin is the TV player,
+// which does not send one; the token still has to match.
+function originOk(origin) {
+  if (!origin) return 'absent';
+  var o = String(origin);
+  if (o.length > 200 || /[\r\n]/.test(o)) return 'reject';
+  if (o === 'null' || /^file:/i.test(o)) return 'ok';
+  if (/^https?:\/\//i.test(o)) {
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(o)) return 'ok';
+    if (o.indexOf('kayaniptv') >= 0) return 'ok';
+    return 'reject';
+  }
+  return 'ok';
+}
+
+function applyCors(req, res) {
+  var origin = req.headers && req.headers.origin;
+  var decision = originOk(origin);
+  if (decision === 'reject') return false;
+  if (decision === 'ok') {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, POST, OPTIONS');
+    var asked = req.headers['access-control-request-headers'];
+    res.setHeader('Access-Control-Allow-Headers', asked || 'Content-Type, Range, Accept, X-Kayan-Token');
+    res.setHeader('Access-Control-Max-Age', '600');
+  }
+  return true;
 }
 
 // wait = how long the provider may take to start answering. A cold movie file can take 15 s or more.
@@ -116,35 +211,28 @@ function fetchOnce(target, ua, range, cb, wait) {
     cb(err, res, finalUrl);
   }
   function go(current) {
-    var parsed = allowed(current);
-    if (!parsed) { done(new Error('bad url')); return; }
-    var lib = parsed.protocol === 'https:' ? https : http;
-    var headers = { 'User-Agent': ua, 'Accept': '*/*' };
-    if (range) headers.Range = range;
-    var req = lib.request({
-      protocol: parsed.protocol,
-      hostname: parsed.hostname,
-      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-      path: parsed.pathname + parsed.search,
-      method: 'GET',
-      headers: headers,
-      rejectUnauthorized: false
-    }, function (res) {
-      var code = res.statusCode || 0;
-      if ([301, 302, 303, 307, 308].indexOf(code) >= 0 && res.headers.location && hops < 5) {
-        hops++;
-        var next;
-        try { next = new URL(res.headers.location, current).toString(); } catch (e) { done(e); return; }
-        res.resume();
-        go(next);
-        return;
-      }
-      req.setTimeout(0);
-      done(null, res, current);
+    guard.checkUrl(current, function (err, info) {
+      if (err || !info) { done(new Error('bad url')); return; }
+      var lib = info.protocol === 'https:' ? https : http;
+      var headers = { 'User-Agent': ua, 'Accept': '*/*' };
+      if (range) headers.Range = range;
+      var req = lib.request(guard.requestOptions(info, 'GET', headers), function (res) {
+        var code = res.statusCode || 0;
+        if ([301, 302, 303, 307, 308].indexOf(code) >= 0 && res.headers.location && hops < 5) {
+          hops++;
+          var next;
+          try { next = new URL(res.headers.location, current).toString(); } catch (e) { done(e); return; }
+          res.resume();
+          go(next);
+          return;
+        }
+        req.setTimeout(0);
+        done(null, res, current);
+      });
+      req.setTimeout(wait || 20000, function () { req.destroy(); done(new Error('timeout')); });
+      req.on('error', function (reqErr) { done(reqErr); });
+      req.end();
     });
-    req.setTimeout(wait || 20000, function () { req.destroy(); done(new Error('timeout')); });
-    req.on('error', function (err) { done(err); });
-    req.end();
   }
   go(target);
 }
@@ -170,18 +258,12 @@ function fetchBest(target, range, cb, wait) {
   attempt();
 }
 
-function cors(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', '*');
-}
-
 // Posters and logos: downloaded once, kept on the TV's disk, served from there afterwards.
 var images = null;
 function pictures() {
   if (!images) {
     images = require('./imgcache').create({
-      dirs: [process.env.LUMIO_IMG_DIR, '/media/developer/temp/lumio-img', '/var/tmp/lumio-img', '/tmp/lumio-img'],
+      dirs: [process.env.KAYAN_IMG_DIR, '/media/developer/temp/kayan-img', '/var/tmp/kayan-img', '/tmp/kayan-img'],
       fetch: function (url, cb) { fetchBest(url, null, cb); }
     });
   }
@@ -193,7 +275,7 @@ var downloads = null;
 function dls() {
   if (!downloads) {
     downloads = require('./download').create({
-      dirs: [process.env.LUMIO_DL_DIR, '/media/developer/apps/usr/palm/applications/com.amrkz.lumioplayer/downloads', '/media/developer/temp/lumio-dl', '/var/tmp/lumio-dl', '/tmp/lumio-dl']
+      dirs: [process.env.KAYAN_DL_DIR, '/media/developer/apps/usr/palm/applications/com.amrkz.kayaniptv/downloads', '/media/developer/temp/kayan-dl', '/var/tmp/kayan-dl', '/tmp/kayan-dl']
     });
   }
   return downloads;
@@ -216,7 +298,7 @@ function readBody(req, cb) {
 
 function json(res, code, obj) {
   var body = JSON.stringify(obj || {});
-  res.writeHead(code || 200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' });
+  res.writeHead(code || 200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(body);
 }
 
@@ -287,26 +369,41 @@ function videoTypeOf(target) {
 }
 
 function onRequest(req, res) {
-  cors(res);
-  if (!ownRequest(req)) { res.writeHead(403); res.end(); return; }
-  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+  if (!ownRequest(req)) {
+    note('reject remote ' + String((req.socket && req.socket.remoteAddress) || ''));
+    res.writeHead(403); res.end(); return;
+  }
   var q = String(req.url || '');
   var pathOnly = q.split('?')[0];
   var search = q.indexOf('?') >= 0 ? q.slice(q.indexOf('?')) : '';
+  if (!tokenOk(presentedToken(req, search))) {
+    note('reject token ' + (req.method || '') + ' ' + pathOnly);
+    res.writeHead(403); res.end(); return;
+  }
+  if (!applyCors(req, res)) {
+    note('reject origin ' + String((req.headers && req.headers.origin) || ''));
+    res.writeHead(403); res.end(); return;
+  }
+  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
   if (pathOnly.indexOf('/dl') === 0) {
     if (handleDownloadApi(req, res, pathOnly, search)) return;
     res.writeHead(404); res.end('dl'); return;
   }
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); res.end(); return; }
   var target = queryValue(search, 'u');
-  if (!target || !allowed(target)) { res.writeHead(400); res.end('bad url'); return; }
+  if (!target) { res.writeHead(400); res.end('bad url'); return; }
   if (pathOnly === '/img') { pictures().serve(req, res, target, queryValue(search, 'w')); return; }
   var asked = Date.now();
   var wait = /\.(m3u8|ts|m4s|aac)$/i.test(pathOnly) ? 20000 : 45000; // a playlist or segment is quick; a movie file may not be
   fetchBest(target, req.headers.range, function (err, up, finalUrl) {
     if (err || !up) {
-      note(req.method + ' ' + pathOnly + ' ' + mask(target) + ' range=' + (req.headers.range || '-') + ' -> ERROR ' + (err ? String(err.message || err) : 'upstream'));
-      if (!res.headersSent) { res.writeHead(502, { 'Content-Type': 'text/plain' }); res.end(err ? String(err.message || err) : 'upstream'); }
+      var why = err ? String(err.message || err) : 'upstream';
+      note(req.method + ' ' + pathOnly + ' ' + mask(target) + ' range=' + (req.headers.range || '-') + ' -> ERROR ' + why);
+      if (!res.headersSent) {
+        var blocked = why === 'bad url';
+        res.writeHead(blocked ? 400 : 502, { 'Content-Type': 'text/plain' });
+        res.end(blocked ? 'bad url' : why);
+      }
       return;
     }
     var code = up.statusCode || 502;
@@ -362,28 +459,118 @@ function onRequest(req, res) {
   }, wait);
 }
 
-function listen(startPort, cb) {
-  var port = startPort;
-  var hosts = ['0.0.0.0', '127.0.0.1'];
-  var hostAt = 0;
-  function attempt() {
-    var host = hosts[hostAt];
+function lanAddrs() {
+  var out = [];
+  var os;
+  try { os = require('os'); } catch (e) { return out; }
+  var nets;
+  try { nets = os.networkInterfaces(); } catch (e2) { return out; }
+  if (!nets) return out;
+  Object.keys(nets).forEach(function (name) {
+    var list = nets[name] || [];
+    var i;
+    for (i = 0; i < list.length; i++) {
+      var n = list[i];
+      if (!n || n.internal) continue;
+      if (n.family !== 'IPv4' && n.family !== 4) continue;
+      if (!n.address || n.address === '0.0.0.0') continue;
+      if (out.indexOf(n.address) < 0) out.push(n.address);
+    }
+  });
+  return out;
+}
+
+// The native player opens the TV's LAN address. hls.js opens 127.0.0.1.
+// Bind those addresses when we can see them. 0.0.0.0 is only the fallback
+// for a TV that does not report a LAN address (binding loopback alone stays black).
+function bindHosts() {
+  var lans = lanAddrs();
+  if (!lans.length) return ['0.0.0.0'];
+  var hosts = lans.slice();
+  if (hosts.indexOf('127.0.0.1') < 0) hosts.push('127.0.0.1');
+  return hosts;
+}
+
+function shutdownServers() {
+  var list = openServers.slice();
+  openServers = [];
+  list.forEach(function (s) { try { s.close(); } catch (e) {} });
+}
+
+function attempt(hosts, port, startPort, narrow, cb) {
+  var pending = hosts.length;
+  var failed = 0;
+  var inUse = 0;
+  var finished = false;
+  function after() {
+    if (finished) return;
+    if (failed === 0) {
+      finished = true;
+      boundPort = port;
+      boundHosts = hosts.slice();
+      ensureToken();
+      note('listen ' + hosts.join(',') + ' ' + port);
+      cb(null, port);
+      return;
+    }
+    shutdownServers();
+    if (inUse && failed === hosts.length && port < startPort + 5) {
+      finished = true;
+      attempt(hosts, port + 1, startPort, narrow, cb);
+      return;
+    }
+    if (narrow) {
+      finished = true;
+      note('listen narrow failed, falling back to 0.0.0.0');
+      attempt(['0.0.0.0'], startPort, startPort, false, cb);
+      return;
+    }
+    finished = true;
+    var err = new Error('listen failed');
+    err.code = inUse ? 'EADDRINUSE' : 'ELISTEN';
+    cb(err);
+  }
+  hosts.forEach(function (host) {
     var server = http.createServer(onRequest);
     server.timeout = 0;
     if (server.requestTimeout !== undefined) server.requestTimeout = 0;
-    server.on('error', function (err) {
-      if (err && err.code === 'EADDRINUSE' && port < startPort + 5) { port++; attempt(); return; }
-      if (hostAt < hosts.length - 1) { hostAt++; port = startPort; attempt(); return; }
-      cb(err);
-    });
-    // 0.0.0.0 so the TV's media pipeline can open the TV's LAN address.
-    // ownRequest() still refuses every other device. Loopback is the fallback.
-    server.listen(port, host, function () {
-      boundPort = port;
-      cb(null, port);
-    });
-  }
-  attempt();
+    var settled = false;
+    function one(err) {
+      if (settled || finished) return;
+      settled = true;
+      if (err) {
+        if (err.code === 'EADDRINUSE') inUse++;
+        failed++;
+        try { server.close(); } catch (e) {}
+      } else {
+        openServers.push(server);
+      }
+      pending--;
+      if (pending === 0) after();
+    }
+    server.on('error', function (err) { one(err || new Error('listen')); });
+    server.listen(port, host, function () { one(null); });
+  });
 }
 
-module.exports = { listen: listen, rewrite: rewrite, wrap: wrap, dls: dls };
+function listen(startPort, cb) {
+  var port = startPort || 18491;
+  var hosts = bindHosts();
+  attempt(hosts, port, port, hosts[0] !== '0.0.0.0', cb);
+}
+
+function close(cb) {
+  shutdownServers();
+  boundPort = 0;
+  if (cb) cb();
+}
+
+module.exports = {
+  listen: listen,
+  rewrite: rewrite,
+  wrap: wrap,
+  dls: dls,
+  token: tokenValue,
+  bindHosts: bindHosts,
+  close: close
+};

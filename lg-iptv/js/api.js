@@ -460,6 +460,7 @@ const API = (() => {
   // The provider returns 409 to the TV browser. A service on the TV refetches
   // the stream with a player identity and serves it on 127.0.0.1.
   let proxyPort = 0;
+  let proxyToken = '';
   let proxyHost = '';
   let hostKnown = false;
   let proxyError = '';
@@ -475,22 +476,23 @@ const API = (() => {
       const x = new XMLHttpRequest();
       let done = false;
       const finish = (ok) => { if (done) return; done = true; resolve(ok ? port : 0); };
-      x.open('GET', 'http://' + (host || '127.0.0.1') + ':' + port + '/list.m3u8', true);
+      const key = proxyToken ? ('?k=' + encodeURIComponent(proxyToken)) : '';
+      x.open('GET', 'http://' + (host || '127.0.0.1') + ':' + port + '/' + key, true);
       x.timeout = 1200;
-      x.onload = () => finish(true);
+      x.onload = () => finish(x.status !== 403);
       x.onerror = () => finish(false);
       x.ontimeout = () => finish(false);
       try { x.send(); } catch (e) { finish(false); }
     });
   }
   function ensureProxy() {
-    if (proxyPort) return Promise.resolve(proxyPort);
+    if (proxyPort && (proxyToken || !window.PalmServiceBridge)) return Promise.resolve(proxyPort);
     if (proxyWait) return proxyWait;
     proxyWait = new Promise(resolve => {
       const finish = (port) => {
-        if (port) proxyPort = port;
+        if (port && (proxyToken || !window.PalmServiceBridge)) proxyPort = port;
         else proxyWait = null;
-        resolve(port || 0);
+        resolve(proxyPort || 0);
       };
       const askBus = () => {
         if (!window.PalmServiceBridge) { probeProxy(18491).then(finish); return; }
@@ -499,23 +501,30 @@ const API = (() => {
         proxyBridge.onservicecallback = (raw) => {
           let msg = {};
           try { msg = JSON.parse(raw); } catch (e) { msg = {}; }
-          if (msg.port) { clearTimeout(timer); finish(msg.port); return; }
-          if (msg.returnValue === false || msg.errorText) {
-            proxyError = msg.errorText || 'proxy failed';
+          if (msg.port && msg.token) {
+            clearTimeout(timer);
+            proxyToken = String(msg.token);
+            finish(msg.port);
+            return;
+          }
+          if (msg.returnValue === false || msg.errorText || (msg.port && !msg.token)) {
+            proxyError = msg.errorText || (msg.port ? 'proxy token missing' : 'proxy failed');
             clearTimeout(timer);
             probeProxy(18491).then(finish);
           }
         };
         try {
           // This TV's bus rejects service names that contain '-'.
-          proxyBridge.call('luna://com.amrkz.lumioplayer.proxy/alive', '{"subscribe":true}');
+          // alive returns the port and the per-install token. The token is not
+          // sent to anything off this TV; every later helper request carries it.
+          proxyBridge.call('luna://com.amrkz.kayaniptv.proxy/alive', '{"subscribe":true}');
         } catch (e) {
           proxyError = String(e && e.message || e);
           clearTimeout(timer);
           probeProxy(18491).then(finish);
         }
       };
-      probeProxy(18491).then(found => { if (found) finish(found); else askBus(); });
+      askBus();
     });
     return proxyWait;
   }
@@ -597,7 +606,7 @@ const API = (() => {
           : vid ? 'seg.' + vid[1].toLowerCase()
           : /\.m4s(\?|$)/i.test(url) ? 'seg.m4s'
           : 'seg.bin';
-        return 'http://' + host + ':' + port + '/' + path + '?u=' + encodeURIComponent(url);
+        return 'http://' + host + ':' + port + '/' + path + '?u=' + encodeURIComponent(url) + (proxyToken ? '&k=' + encodeURIComponent(proxyToken) : '');
       });
     });
   }
@@ -605,12 +614,12 @@ const API = (() => {
   // Until the helper has answered once (or if it never does), the picture loads from its own address.
   // w = the width wanted; the helper only changes pictures from TMDB.
   function imgUrl(src, w) {
-    if (!src || !proxyPort || !/^https?:\/\//i.test(src)) return src;
+    if (!src || !proxyPort || !proxyToken || !/^https?:\/\//i.test(src)) return src;
     if (/^http:\/\/(127\.0\.0\.1|localhost)[:\/]/i.test(src)) return src;
-    return 'http://127.0.0.1:' + proxyPort + '/img?w=' + (w || 342) + '&u=' + encodeURIComponent(src);
+    return 'http://127.0.0.1:' + proxyPort + '/img?w=' + (w || 342) + '&k=' + encodeURIComponent(proxyToken) + '&u=' + encodeURIComponent(src);
   }
   ensureProxy();
 
-  return { getWatched, addWatched, imgUrl, clearLists, norm, getAll, search, getShortEpg, getArchiveGuide, catchupUrls, hasArchive, pref, getIntro, setIntro, getVodInfoCached, getRecent, addRecent, progressMap, getProgress, saveProgress, removeProgress, listProgress, listProgressCollapsed, parseServer, getLast, liveAltUrl, xtreamLogin, m3uLogin, ensureLoaded, getConfig, clearConfig, getCategories, getStreams, streamUrl, getSeriesInfo, getVodInfo, getFavs, toggleFav, isFav, proxyUrl, get proxyPort() { return proxyPort; }, get proxyError() { return proxyError; } };
+  return { getWatched, addWatched, imgUrl, clearLists, norm, getAll, search, getShortEpg, getArchiveGuide, catchupUrls, hasArchive, pref, getIntro, setIntro, getVodInfoCached, getRecent, addRecent, progressMap, getProgress, saveProgress, removeProgress, listProgress, listProgressCollapsed, parseServer, getLast, liveAltUrl, xtreamLogin, m3uLogin, ensureLoaded, getConfig, clearConfig, getCategories, getStreams, streamUrl, getSeriesInfo, getVodInfo, getFavs, toggleFav, isFav, proxyUrl, get proxyPort() { return proxyPort; }, get proxyToken() { return proxyToken; }, get proxyError() { return proxyError; } };
 })();
 window.API = API;

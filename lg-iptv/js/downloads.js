@@ -3,7 +3,7 @@
 const Downloads = (() => {
   // Capacitor Android provides a Filesystem-backed manager; use it when present.
   if (window.AndroidDownloads) return window.AndroidDownloads;
-  const BUS = 'luna://com.amrkz.lumioplayer.proxy/';
+  const BUS = 'luna://com.amrkz.kayaniptv.proxy/';
   let cache = { jobs: [], space: null, at: 0 };
   let pollTimer = null;
   let listeners = [];
@@ -17,11 +17,17 @@ const Downloads = (() => {
     return p ? ('http://127.0.0.1:' + p) : '';
   }
 
+  function withKey(path) {
+    const t = (window.API && API.proxyToken) || '';
+    if (!t) return path;
+    return path + (path.indexOf('?') >= 0 ? '&' : '?') + 'k=' + encodeURIComponent(t);
+  }
+
   function http(path, opts) {
     const root = base();
     if (!root) return Promise.reject(new Error('proxy offline'));
     const o = opts || {};
-    return fetch(root + path, {
+    return fetch(root + withKey(path), {
       method: o.method || 'GET',
       headers: o.body ? { 'Content-Type': 'application/json' } : undefined,
       body: o.body ? JSON.stringify(o.body) : undefined
@@ -93,7 +99,9 @@ const Downloads = (() => {
   function localUrl(job) {
     if (!job || job.status !== 'done') return null;
     const root = base();
-    return root ? (root + '/dl/file?id=' + encodeURIComponent(job.id)) : null;
+    const t = window.API && API.proxyToken;
+    if (!root || !t) return null;
+    return root + '/dl/file?id=' + encodeURIComponent(job.id) + '&k=' + encodeURIComponent(t);
   }
 
   function fmtBytes(n) {

@@ -2,7 +2,7 @@
 
 **Package:** `com.amrkz.kayaniptv`  
 **versionCode:** 4 · **versionName:** 1.0.3  
-**Upload key alias:** `kayan` (keystore: `kayan-release.jks`)  
+**Upload key alias:** `kayan` (keystore file `android-app/keystore/kayan-release.jks`, not in git; passwords in `android-app/keystore.properties` or `KAYAN_*` env vars)  
 **Privacy policy URL:** https://amrkz.github.io/lg-iptv/  
 **Fallback raw URL:** https://raw.githubusercontent.com/Amrkz/lg-iptv/main/PRIVACY.md
 
