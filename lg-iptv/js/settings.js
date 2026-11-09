@@ -123,9 +123,10 @@ const Settings = (() => {
       m3u: cfg.url || last.m3u || '',
       ts: Date.now()
     };
-    const key = snap.type === 'xtream' ? ('x:' + snap.server + '|' + snap.user) : ('m:' + snap.m3u);
+    // the username is compared without letter case, so a login whose case was corrected replaces its old entry
+    const key = snap.type === 'xtream' ? ('x:' + snap.server + '|' + String(snap.user).toLowerCase()) : ('m:' + snap.m3u);
     const list = getProfiles().filter(p => {
-      const k = p.type === 'xtream' ? ('x:' + p.server + '|' + p.user) : ('m:' + p.m3u);
+      const k = p.type === 'xtream' ? ('x:' + p.server + '|' + String(p.user).toLowerCase()) : ('m:' + p.m3u);
       return k !== key;
     });
     list.unshift(snap);

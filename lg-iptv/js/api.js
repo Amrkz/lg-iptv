@@ -63,6 +63,33 @@ const API = (() => {
   }
   function getLast() { return load('last') || {}; }
 
+  // The login API accepts a username in any letter case, but the stream server does not:
+  // a wrong case there is answered with HTTP 409 and nothing plays. A TV keyboard
+  // capitalises the first letter, so use the spelling the provider reports back.
+  function providerSpelling(typed, reported) {
+    const t = String(typed == null ? '' : typed);
+    const r = String(reported == null ? '' : reported);
+    return r && r.toLowerCase() === t.trim().toLowerCase() ? r : t;
+  }
+  // A login saved before that fix may still hold the typed case. Checked once per app start.
+  let loginCaseChecked = false;
+  function fixLoginCase() {
+    const c = getConfig();
+    if (loginCaseChecked || !c || c.type !== 'xtream') return Promise.resolve();
+    const url = `${c.server}/player_api.php?username=${encodeURIComponent(c.user)}&password=${encodeURIComponent(c.pass)}`;
+    return fetchJson(url).then(j => {
+      loginCaseChecked = true;
+      const ui = j && j.user_info;
+      if (!ui || Number(ui.auth) !== 1) return;
+      const user = providerSpelling(c.user, ui.username);
+      const pass = providerSpelling(c.pass, ui.password);
+      if (user === c.user && pass === c.pass) return;
+      cfg = Object.assign({}, c, { user, pass });
+      store('cfg', cfg);
+      rememberLogin({ server: c.server, user });
+    }).catch(() => {}); // offline or slow: try again on the next start, the lists still load
+  }
+
   function xtreamLogin(serverInput, user, pass) {
     const parsed = parseServer(serverInput);
     const server = parsed.server;
@@ -76,6 +103,9 @@ const API = (() => {
       if (ui.status && String(ui.status).toLowerCase() !== 'active') throw new Error(tr('Account {status}', { status: ui.status }));
       if (ui.exp_date && Number(ui.exp_date) > 0 && Number(ui.exp_date) * 1000 < Date.now()) throw new Error(tr('Account expired'));
       const formats = Array.isArray(ui.allowed_output_formats) ? ui.allowed_output_formats : [];
+      user = providerSpelling(user, ui.username);
+      pass = providerSpelling(pass, ui.password);
+      loginCaseChecked = true;
       clearLists();
       cfg = { type: 'xtream', server, user, pass, formats };
       store('cfg', cfg);
@@ -104,6 +134,7 @@ const API = (() => {
     if (c && c.type === 'm3u' && !m3uItems) {
       return fetchText(c.url).then(text => { m3uItems = parseM3U(text); });
     }
+    if (c && c.type === 'xtream') return fixLoginCase();
     return Promise.resolve();
   }
 
