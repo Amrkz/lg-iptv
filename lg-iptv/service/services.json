@@ -1,9 +1,9 @@
 {
-  "id": "com.amrkz.lumioplayer.proxy",
+  "id": "com.amrkz.kayaniptv.proxy",
   "description": "Local stream proxy and offline downloads",
   "services": [
     {
-      "name": "com.amrkz.lumioplayer.proxy",
+      "name": "com.amrkz.kayaniptv.proxy",
       "description": "Local stream proxy and offline downloads",
       "commands": [
         { "name": "alive", "description": "Start the local player and return its port", "public": true },

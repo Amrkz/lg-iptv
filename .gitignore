@@ -26,6 +26,8 @@ android-app/www/
 
 # Play / signing
 *.aab
+android-app/keystore.properties
+keystore.properties
 play/*.aab
 **/keystore/*.jks
 **/keystore/*.keystore

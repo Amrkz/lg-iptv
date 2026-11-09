@@ -1,5 +1,33 @@
 apply plugin: 'com.android.application'
 
+// Release passwords stay out of git. Copy android-app/keystore.properties.example
+// to android-app/keystore.properties, or set the KAYAN_* environment variables.
+// Debug builds use the Android debug keystore and do not need either.
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('../keystore.properties')
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
+def kayanProp = { String name, String envName ->
+    def fromEnv = System.getenv(envName)
+    if (fromEnv != null && fromEnv.trim()) return fromEnv.trim()
+    def fromFile = keystoreProperties.getProperty(name)
+    if (fromFile != null && fromFile.trim()) return fromFile.trim()
+    return ''
+}
+
+def kayanStoreFile = kayanProp('storeFile', 'KAYAN_STORE_FILE')
+if (!kayanStoreFile) kayanStoreFile = 'keystore/kayan-release.jks'
+def kayanStorePassword = kayanProp('storePassword', 'KAYAN_STORE_PASSWORD')
+def kayanKeyAlias = kayanProp('keyAlias', 'KAYAN_KEY_ALIAS')
+if (!kayanKeyAlias) kayanKeyAlias = 'kayan'
+def kayanKeyPassword = kayanProp('keyPassword', 'KAYAN_KEY_PASSWORD')
+def kayanStoreBase = keystorePropertiesFile.parentFile
+def kayanStore = new File(kayanStoreFile)
+if (!kayanStore.isAbsolute()) kayanStore = new File(kayanStoreBase, kayanStoreFile)
+def hasReleaseSigning = kayanStore.isFile() && kayanStorePassword && kayanKeyPassword
+
 android {
     namespace "com.amrkz.kayaniptv"
     compileSdk rootProject.ext.compileSdkVersion
@@ -16,22 +44,23 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
-    signingConfigs {
-        release {
-            storeFile file('../../keystore/kayan-release.jks')
-            storePassword 'kayaniptv'
-            keyAlias 'kayan'
-            keyPassword 'kayaniptv'
+    if (hasReleaseSigning) {
+        signingConfigs {
+            release {
+                storeFile kayanStore
+                storePassword kayanStorePassword
+                keyAlias kayanKeyAlias
+                keyPassword kayanKeyPassword
+            }
         }
     }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
-        }
-        debug {
-            signingConfig signingConfigs.release
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
@@ -55,6 +84,16 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
+
+def signingHint = 'Release signing needs android-app/keystore.properties (see keystore.properties.example) or KAYAN_STORE_FILE, KAYAN_STORE_PASSWORD, KAYAN_KEY_ALIAS and KAYAN_KEY_PASSWORD. The keystore file is not in git. Debug builds do not need it.'
+gradle.taskGraph.whenReady { graph ->
+    def wantsRelease = graph.allTasks.any { t ->
+        t.name == 'assembleRelease' || t.name == 'bundleRelease' || t.name == 'packageRelease' || t.name == 'signReleaseBundle'
+    }
+    if (wantsRelease && !hasReleaseSigning) {
+        throw new GradleException(signingHint)
+    }
+}
 
 try {
     def servicesJSON = file('google-services.json')

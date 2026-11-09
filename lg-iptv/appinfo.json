@@ -1,5 +1,6 @@
 {
-  "id": "com.amrkz.lumioplayer",
+  "id": "com.amrkz.kayaniptv",
+  "appDescription": "IPTV player for your own playlists. No channels included.",
   "version": "1.0.0",
   "vendor": "Amrkz",
   "type": "web",

@@ -839,7 +839,7 @@ const App = (() => {
       return;
     }
     if (a === 'import') {
-      promptValue(tr('Import settings'), tr('Paste a backup code.'), '', v => {
+      promptValue(tr('Import settings'), tr('Paste a backup code. Passwords and the PIN are not in it.'), '', v => {
         const r = Settings.importBackup(v);
         openConfirm(tr('Import settings'), r.ok ? tr('Settings restored. Reloading…') : tr('Backup code is not valid.'), [
           { label: tr('OK'), primary: true, on: () => { if (r.ok) location.reload(); } }
