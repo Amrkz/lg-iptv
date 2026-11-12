@@ -59,6 +59,6 @@ cd android-app && npm install && node scripts/copy-web.js && npx cap sync androi
 
 ## Known issues / open work
 - **Old webOS install:** `com.amrkz.lumioplayer` may still be on the TV. Remove it by hand. Storage does not move to `com.amrkz.kayaniptv`. Do not rename the new id after the first Seller Lounge submission.
-- **Android on old WebViews** (for example a ClassPro TV): streams never start and the app shows "slow internet". hls.js and the WebView's MSE fail there. Planned fix: native Media3 ExoPlayer playback through a Capacitor plugin, used only on Android.
+- **Android on old WebViews** (for example a ClassPro TV): streams never started in the WebView ("slow internet"). Since 1.0.5 (code 6) the Android app hands every stream to a native Media3 ExoPlayer screen (`NativePlayerPlugin` + `NativePlayerActivity`, called from `startExo()` in `player.js`; it falls back to the page player only for a decoder/format failure). webOS and Tizen never see the plugin. Not yet confirmed on a real ClassPro box.
 - **Play closed test:** blocked on reviewer sign-in details. The plan is to give reviewers the free playlist https://iptv-org.github.io/iptv/index.m3u.
 - **Ads:** none yet. Advertising ID is declared as "No"; change that declaration before adding ads.
