@@ -761,6 +761,108 @@ const Player = (() => {
     });
   }
 
+  // ---------- Android: native player (ExoPlayer) ----------
+  // Some Android TV boxes (ClassPro and others) cannot play IPTV in the WebView: hls.js and <video>
+  // sit on "slow" forever. In the Android app the stream goes to a full-screen native player instead.
+  // webOS, Tizen and browsers have no NativePlayer plugin, so nothing here runs there.
+  let exoOff = false;   // the native player could not open this item: use the page player
+  function exoPlugin() {
+    try {
+      const C = window.Capacitor;
+      if (!C || !C.isNativePlatform || !C.isNativePlatform()) return null;
+      if (!C.getPlatform || C.getPlatform() !== 'android') return null;
+      if (C.isPluginAvailable && !C.isPluginAvailable('NativePlayer')) return null;
+      return (C.Plugins && C.Plugins.NativePlayer) || null;
+    } catch (e) { return null; }
+  }
+  function useExo() { return !exoOff && !!exoPlugin(); }
+
+  function startExo(url) {
+    const P = exoPlugin();
+    const token = playToken;
+    engine = 'exo';
+    startUrl = url;
+    started = false;
+    failed = false;
+    httpStatus = 0;
+    httpNote = '';
+    clearTimeout(busyTimer);
+    teardown();
+    releaseVideo();
+    spinner.classList.add('hidden');
+    setMsg('');
+    let pos = 0;
+    if (seekOnLoad > 0) pos = seekOnLoad;
+    else if (!isLive() && !isCatchup() && !resumeDone && !(window.Settings && Settings.get('resume') === false)) {
+      const pr = API.getProgress(info.url);
+      if (pr && pr.t > 20 && (!pr.d || pr.t < pr.d - 30)) pos = pr.t;
+    }
+    resumeDone = true;
+    seekOnLoad = 0;
+    P.play({
+      url,
+      title: (info && info.title) || '',
+      subtitle: (info && info.subtitle) || '',
+      live: isLive(),
+      position: pos
+    }).then(res => {
+      if (token !== playToken || !ctx) return;
+      exoResult(res || {});
+    }, () => {
+      if (token !== playToken || !ctx) return;
+      exoOff = true;   // the plugin itself failed: fall back to the page player
+      start(url);
+    });
+  }
+
+  function exoSave(res) {
+    if (!ctx || !info || isLive() || isCatchup() || finishedHandled) return;
+    const t = +res.position || 0, d = +res.duration || 0;
+    if (d < 120 || t < 20) return;
+    if (d - t < 30 || t / d > 0.95) { markFinished(); return; }
+    API.saveProgress(Object.assign({ url: info.url, name: info.title + (info.subtitle ? ' · ' + info.subtitle : ''), icon: info.icon || '', kind: ctx.kind, t, d }, seriesMeta(info)));
+  }
+
+  function exoResult(res) {
+    const a = res.action || 'back';
+    if (a === 'error') {
+      if (alts.length) { start(alts.shift()); return; }      // next format or link, still native
+      if (!res.started && !res.httpStatus) {                  // a format this box's decoder refused: try the page player once
+        exoOff = true;
+        triedJs = false; triedNative = false; engine = '';
+        alts = altsOf(info);
+        start(info.url);
+        return;
+      }
+      failed = true;
+      httpStatus = res.httpStatus | 0;
+      spinner.classList.add('hidden');
+      showOverlay(B.play);
+      setMsg(failureMessage(res.error || ''));
+      return;
+    }
+    exoSave(res);
+    if (a === 'ended') {
+      if (isCatchup()) { backToLive(); return; }
+      if (nextItem()) { autoAdvance(); return; }
+      if (isLive()) { start(info.url); return; }
+      if (info) API.removeProgress(info.url);
+      back();
+      return;
+    }
+    if (a === 'next' || a === 'prev') {
+      const dir = a === 'next' ? 1 : -1;
+      const n = ctx.items.length;
+      if (isLive() && n > 1) { playIndex((ctx.index + dir + n) % n); return; }
+      const i = ctx.index + dir;
+      if (i >= 0 && i < n && ctx.type === 'series') { playIndex(i); return; }
+      seekOnLoad = +res.position || 0;    // nothing to move to: carry on where it was
+      startExo(curSource || info.url);
+      return;
+    }
+    back();
+  }
+
   function start(url, mode) {
     const token = ++playToken;
     curSource = url;
@@ -775,6 +877,7 @@ const Player = (() => {
     // The TV's own player reads the LAN address. The page player reads loopback.
     if (!mode) mode = 'native';
     const lan = mode !== 'js';
+    if (useExo()) { startExo(url); return; } // Android app: native player, provider address as is
     const run = (playUrl) => { if (token === playToken) startNow(playUrl, mode); };
     if (window.API && API.proxyUrl) API.proxyUrl(url, lan).then(run, () => run(url));
     else run(url);
@@ -868,7 +971,7 @@ const Player = (() => {
     finishedHandled = false; resumedFrom = 0; langApplied = false; langTries = 0;
     reconnects = 0; seekOnLoad = 0; seekTries = 0; pausedAt = 0;
     epg = []; epgLoadedAt = 0;
-    triedJs = false; triedNative = false; engine = '';
+    triedJs = false; triedNative = false; engine = ''; exoOff = false;
     hideUpNext();
     hideSkip();
     hidePauseCard();
