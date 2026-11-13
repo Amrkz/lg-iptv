@@ -82,7 +82,7 @@ bash ios-app/build-mac.sh sim | archive | device                                
 
 ## Known issues / open work
 - **Old webOS install:** `com.amrkz.lumioplayer` has been removed from Amr's TV (Nov 13, 2026). On any other TV remove it by hand; storage does not move to `com.amrkz.kayaniptv`. Do not rename the new id after the first Seller Lounge submission.
-- **App Store review:** the 1.0.6 listing is complete except the App Review contact **phone number** (required, with + country code). Add it on the version page, Save, then Add for Review → Submit for Review.
+- **App Store review:** iOS 1.0.6 (8) was submitted on Nov 13, 2026 and is **Waiting for Review** (auto-release after approval). Check App Store Connect → Kayan IPTV → App Review for the result; if rejected, fix and resubmit from the version page.
 - **Android on old WebViews** (for example a ClassPro TV): streams never started in the WebView ("slow internet"). Since 1.0.5 (code 6) the Android app hands every stream to a native Media3 ExoPlayer screen (`NativePlayerPlugin` + `NativePlayerActivity`, called from `startExo()` in `player.js`; it falls back to the page player only for a decoder/format failure). webOS and Tizen never see the plugin. Not yet confirmed on a real ClassPro box.
 - **Play closed test:** blocked on reviewer sign-in details. The plan is to give reviewers the free playlist https://iptv-org.github.io/iptv/index.m3u.
 - **Ads:** none yet. Advertising ID is declared as "No"; change that declaration before adding ads.

@@ -115,7 +115,8 @@ Done and uploaded (landscape, 6 per set: home, live, search, player, Arabic, set
 
 ## Submission status (Nov 13, 2026)
 Saved in App Store Connect: English + Arabic name, subtitle, promo text, description, keywords, URLs, copyright, version 1.0.6 with build 8, categories (Entertainment / Utilities), age rating 4+, content rights, Free in all countries, App Privacy "Data Not Collected" (published), privacy URL for both languages, screenshots.
-**Not submitted yet:** App Store Connect requires a phone number (with + country code) in App Review → Contact Information. Fill it (plus name Amr Ali, email amokazes@gmail.com, sign-in required = No, the notes above), Save, then Add for Review → Submit for Review.
+App Review contact saved (Amr Ali, amokazes@gmail.com, phone on file in App Store Connect), sign-in required = No, review notes as above.
+**Submitted for review Nov 13, 2026, 3:20 PM (Riyadh).** Status: **Waiting for Review** (Apple says up to 48 h; result comes by email). Release: automatic after approval.
 
 ## Upload (done for build 8; future builds only when Amr approves)
 Xcode → Window → Organizer → select **KayanIPTV** archive (1.0.6 (7)) → **Distribute App** → **App Store Connect** → Upload.
