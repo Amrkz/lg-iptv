@@ -65,6 +65,7 @@ public class NativePlayerActivity extends Activity {
     private static final String DEFAULT_UA = "VLC/3.0.20 LibVLC/3.0.20";
     private static final long SEEK_MS = 10_000;
     private static final int RECONNECT_MAX = 3;
+    private static final int CONTROLS_MS = 4000;
 
     private final Handler ui = new Handler(Looper.getMainLooper());
     private ExoPlayer player;
@@ -142,7 +143,22 @@ public class NativePlayerActivity extends Activity {
         root.setBackgroundColor(Color.BLACK);
 
         view = new PlayerView(this);
-        view.setUseController(false);
+        // On-screen controls (seek bar, play/pause, -10/+10): a tap shows or hides them on phones,
+        // any remote key shows them on TV boxes. They stay up while paused and hide after 4 s while playing.
+        view.setUseController(true);
+        view.setControllerAutoShow(true);
+        view.setControllerHideOnTouch(true);
+        view.setControllerShowTimeoutMs(CONTROLS_MS);
+        view.setShowNextButton(false);
+        view.setShowPreviousButton(false);
+        view.setShowRewindButton(true);
+        view.setShowFastForwardButton(true);
+        view.setShowSubtitleButton(true);
+        view.setControllerVisibilityListener((PlayerView.ControllerVisibilityListener) visibility -> {
+            if (infoBar == null) return;
+            if (visibility == View.VISIBLE) { ui.removeCallbacks(hideOsd); infoBar.setVisibility(View.VISIBLE); }
+            else if (osd == null || osd.getVisibility() != View.VISIBLE) infoBar.setVisibility(View.GONE);
+        });
         view.setKeepScreenOn(true);
         view.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FIT);
         view.setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER);
@@ -172,7 +188,9 @@ public class NativePlayerActivity extends Activity {
         osd.setPadding(dp(20), dp(10), dp(20), dp(10));
         osd.setBackgroundColor(0x99000000);
         osd.setVisibility(View.GONE);
-        root.addView(osd, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+        FrameLayout.LayoutParams op = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+        op.topMargin = dp(120); // clear of the controller's centre buttons
+        root.addView(osd, op);
 
         infoBar = new LinearLayout(this);
         infoBar.setOrientation(LinearLayout.VERTICAL);
@@ -371,6 +389,11 @@ public class NativePlayerActivity extends Activity {
         ui.postDelayed(() -> close("error", text, status), 3500);
     }
 
+    /** Bring the on-screen controls back (any key on the remote). */
+    private void wakeControls() {
+        if (view != null && player != null) view.showController();
+    }
+
     private void showOsd(String text) {
         osd.setText(text);
         osd.setVisibility(View.VISIBLE);
@@ -429,6 +452,7 @@ public class NativePlayerActivity extends Activity {
         }
         if (e.getAction() != KeyEvent.ACTION_DOWN) return true;
         boolean repeat = e.getRepeatCount() > 0;
+        if (k != KeyEvent.KEYCODE_BACK && k != KeyEvent.KEYCODE_ESCAPE && k != KeyEvent.KEYCODE_MEDIA_STOP) wakeControls();
         switch (k) {
             case KeyEvent.KEYCODE_BACK:
             case KeyEvent.KEYCODE_ESCAPE:

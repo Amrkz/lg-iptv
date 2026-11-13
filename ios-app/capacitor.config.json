@@ -1,0 +1,20 @@
+{
+  "appId": "com.amrkz.kayaniptv",
+  "appName": "Kayan IPTV",
+  "webDir": "www",
+  "server": {
+    "iosScheme": "capacitor",
+    "allowNavigation": ["*"]
+  },
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#0a0a0c",
+    "allowsLinkPreview": false,
+    "scrollEnabled": false,
+    "limitsNavigationsToAppBoundDomains": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "StatusBar": { "style": "DARK", "overlaysWebView": true }
+  }
+}

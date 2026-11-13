@@ -58,6 +58,7 @@ I18n.add('ar', {
   'Search failed: {msg}': 'فشل البحث: {msg}',
   'Channels, movies, series': 'قنوات، أفلام، مسلسلات',
   'Press OK to type. Press Down for results.': 'اضغط OK للكتابة. اضغط للأسفل لعرض النتائج.',
+  'Type, then press OK or Enter to search. Press Down for results.': 'اكتب ثم اضغط OK أو Enter للبحث. اضغط للأسفل لعرض النتائج.',
   'Press OK to play. Press the yellow button to add it to your favorites.': 'اضغط OK للتشغيل. اضغط الزر الأصفر لإضافته إلى المفضلة.',
 
   // series

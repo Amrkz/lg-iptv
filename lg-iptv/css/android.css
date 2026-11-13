@@ -57,3 +57,6 @@ html.plat-android #app {
 html.plat-android.touch.portrait .hint {
   display: none;
 }
+/* phones and tablets: no colour buttons to explain, and room for the on-screen Back arrow */
+html.touch .topbar .hint { display: none; }
+html.touch .topbar .touchback:not(.hidden) ~ .clock { display: none; }

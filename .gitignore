@@ -31,3 +31,14 @@ keystore.properties
 play/*.aab
 **/keystore/*.jks
 **/keystore/*.keystore
+
+# iOS / Capacitor
+ios-app/node_modules/
+ios-app/www/
+ios-app/ios/App/App/public/
+ios-app/ios/App/App/capacitor.config.json
+ios-app/ios/App/App/config.xml
+ios-app/ios/DerivedData/
+ios-app/ios/App/build/
+xcuserdata/
+*.xcarchive

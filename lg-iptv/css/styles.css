@@ -174,6 +174,9 @@ nav .navbtn + .navbtn { margin-left: 8px; }
 .overlay { position: static; height: 0; overflow: visible; opacity: 1; background: none; pointer-events: none; }
 .overlay.hide { display: none; }
 .ov-top, .ov-bottom, .pbtn, .seekbar { pointer-events: auto; }
+/* above the picture on every engine (some Android WebViews put a hardware video plane over unstacked siblings) */
+.ov-top, .ov-bottom { z-index: 10; }
+#player .spinner { z-index: 8; }
 .ov-top { position: absolute; top: 0; left: 0; right: 0; height: 240px; padding: 48px var(--gutter); display: flex; align-items: flex-start; background: linear-gradient(to bottom, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0)); }
 .ov-titles { margin-left: 28px; padding-top: 2px; }
 .ov-title { text-align: left; font: 900 72px/0.9 var(--display); text-transform: uppercase; text-shadow: 2px 4px 14px rgba(0, 0, 0, 0.7); }
@@ -542,3 +545,28 @@ html[data-theme] .hero h2 { line-height: 1.32; }
 .row h3.head-link:hover > span:first-child { text-decoration: underline; text-underline-offset: 8px; }
 .row h3.head-link::after { content: '\203A'; margin-inline-start: 14px; opacity: 0.55; }
 html[dir="rtl"] .row h3.head-link::after { content: '\2039'; }
+
+/* ---------- Search first: the leading pill in the menu ---------- */
+.navbtn.searchnav { display: inline-flex; align-items: center; gap: 10px; border: 2px solid rgba(255, 255, 255, 0.4); }
+.navbtn.searchnav .search-ico { width: 30px; height: 30px; fill: currentColor; flex: none; }
+.navbtn.searchnav:focus { border-color: #fff; }
+.search-form { margin: 0; padding: 0; }
+.search-input { -webkit-appearance: none; appearance: none; box-sizing: border-box; }
+.search-input::-webkit-search-decoration, .search-input::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
+/* cards that sit over the controls stay above them */
+#player .upnext, #player .skipintro, #player .chnum { z-index: 12; }
+#player .toast { z-index: 35; }
+.overlay:not(.hide) ~ .pausecard { bottom: 400px; }
+#player .pausecard { z-index: 12; }
+/* the menu must fit 1920 px in English too (Search pill first, Theme / Language / Logout last) */
+html:not([lang="ar"]) .navbtn { padding: 12px 19px; }
+nav .navbtn + .navbtn { margin-left: 4px; }
+html[dir="rtl"] nav .navbtn + .navbtn { margin-left: 0; margin-right: 4px; }
+#theme-btn .theme-name { display: none; }
+html:not([lang="ar"]) nav { margin-left: 28px; }
+html:not([lang="ar"]) .clock { min-width: 0; margin-inline-end: 12px; }
+html:not([lang="ar"]) #theme-btn { padding-left: 14px; padding-right: 14px; min-width: 0; }
+.touchback { display: inline-flex; align-items: center; margin-inline-end: 18px; padding: 10px 14px; }
+.touchback.hidden { display: none; }
+.touchback svg { width: 36px; height: 36px; fill: currentColor; }
+html[dir="rtl"] .touchback svg { transform: scaleX(-1); }

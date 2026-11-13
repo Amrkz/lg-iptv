@@ -165,6 +165,7 @@ const API = (() => {
 
   function getCategories(kind) {
     const c = getConfig();
+    if (!c) return Promise.resolve([]); // signed out: nothing to list
     if (c.type === 'm3u') {
       const seen = {}, cats = [];
       m3uOf(kind).forEach(i => {
@@ -180,6 +181,7 @@ const API = (() => {
   // Errors are passed on, so the screen can say what went wrong. An empty shelf looks like "no movies".
   function getStreams(kind, catId) {
     const c = getConfig();
+    if (!c) return Promise.resolve([]);
     const all = !catId || catId === 'all';
     if (c.type === 'm3u') {
       return Promise.resolve(m3uOf(kind).filter(i => all || i.group === catId));
@@ -210,6 +212,7 @@ const API = (() => {
   function streamUrl(item, kind) {
     if (item.url) return item.url; // M3U items, episodes, favorites
     const c = getConfig();
+    if (!c) return null;
     const u = encodeURIComponent(c.user), p = encodeURIComponent(c.pass);
     if (kind === 'live') return `${c.server}/live/${u}/${p}/${item.stream_id}.${liveExt(c)}`;
     if (kind === 'movies') return `${c.server}/movie/${u}/${p}/${item.stream_id}.${item.container_extension || 'mp4'}`;
@@ -224,6 +227,7 @@ const API = (() => {
   const allCache = {};
   function getAll(kind) {
     const c = getConfig();
+    if (!c) return Promise.resolve([]);
     if (c.type === 'm3u') return Promise.resolve(m3uOf(kind));
     if (allCache[kind]) return allCache[kind];
     const action = kind === 'live' ? 'get_live_streams' : kind === 'movies' ? 'get_vod_streams' : 'get_series';

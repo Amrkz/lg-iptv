@@ -64,6 +64,8 @@ function exitApp() {
 // Back at the top level asks first. A slip of the thumb should not drop the viewer out of the app.
 let exitOpen = false, exitReturn = null;
 function askExit() {
+  // iOS apps never quit themselves: Back at the top level simply stays.
+  try { if (window.Capacitor && Capacitor.getPlatform && Capacitor.getPlatform() === 'ios') return; } catch (e) {}
   const box = document.getElementById('exitbox');
   const stay = document.getElementById('exit-stay');
   if (!box || !stay) { exitApp(); return; }

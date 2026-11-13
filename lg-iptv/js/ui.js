@@ -277,17 +277,33 @@ const UI = (() => {
     const k = document.createElement('div');
     k.className = 'hero-kicker';
     k.textContent = tr('Search');
+    // A <form> makes the on-screen keyboard's Search / Go / Enter key submit on every platform
+    // (iOS, Android IME, webOS); app.js listens for submit as well as the Enter key.
+    const form = document.createElement('form');
+    form.id = 'search-form';
+    form.className = 'search-form';
+    form.setAttribute('action', '#');
+    form.setAttribute('role', 'search');
+    form.noValidate = true;
     const input = document.createElement('input');
     input.id = 'search-input';
     input.className = 'search-input';
+    input.type = 'search';
+    input.name = 'q';
     input.placeholder = tr('Channels, movies, series');
     input.setAttribute('autocomplete', 'off');
+    input.setAttribute('autocorrect', 'off');
+    input.setAttribute('autocapitalize', 'off');
     input.setAttribute('spellcheck', 'false');
+    input.setAttribute('enterkeyhint', 'search');
+    input.setAttribute('inputmode', 'search');
+    input.setAttribute('aria-label', tr('Search'));
     input.dir = 'auto';
+    form.appendChild(input);
     const p = document.createElement('p');
-    p.textContent = tr('Press OK to type. Press Down for results.');
+    p.textContent = tr('Type, then press OK or Enter to search. Press Down for results.');
     box.appendChild(k);
-    box.appendChild(input);
+    box.appendChild(form);
     box.appendChild(p);
     slide.appendChild(box);
     el.appendChild(slide);

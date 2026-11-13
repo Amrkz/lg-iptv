@@ -7,6 +7,7 @@ Kayan IPTV is an IPTV *viewer* (no content of its own). The user signs in with X
 One web app (`lg-iptv/`) is shipped to several platforms:
 - **LG webOS TV**: app id `com.amrkz.kayaniptv`, helper `com.amrkz.kayaniptv.proxy` (the main target, a 2021 LG TV). No hyphen in either name. The id locks after the first Content Store submission.
 - **Android / Android TV**: Capacitor app, package `com.amrkz.kayaniptv` (Play Console, account amokazes@gmail.com).
+- **iPhone / iPad**: Capacitor 7 app in `ios-app/` (Swift Package Manager, no CocoaPods), bundle id `com.amrkz.kayaniptv`, version 1.0.6 (build 7).
 - **Samsung Tizen**: `tizen-app/` (not packaged yet; needs Tizen Studio and a Samsung certificate).
 
 ## Layout
@@ -22,6 +23,7 @@ One web app (`lg-iptv/`) is shipped to several platforms:
 - `lg-iptv/css/`: `styles.css` and `themes.css`.
 - `lg-iptv/lib/hls.min.js`.
 - `android-app/`, `tizen-app/`, `play/` and `store/`: platform wrappers and store assets.
+- `ios-app/`: iOS wrapper. `ios-app/scripts/copy-web.js` copies `lg-iptv/` into `ios-app/www/` and marks the page `plat-android plat-ios` (same touch stage-fit, HLS-first and downloads code as Android; the Android-only ExoPlayer plugin is skipped because `Capacitor.getPlatform()` is `ios`). iOS plays through `<video playsinline>` (native HLS, AirPlay and picture-in-picture allowed).
 - The Android Capacitor project is `android-app/` in this repo. `android-app/scripts/copy-web.js` copies `lg-iptv/` (the sibling of `android-app/`) into `android-app/www/`.
 
 ## Rules
@@ -50,12 +52,31 @@ cd android-app && npm install && node scripts/copy-web.js && npx cap sync androi
 - The signing keystore is `android-app/keystore/kayan-release.jks` (not in git; alias `kayan`). Do not put the passwords back in `build.gradle`.
 - Check the result with `apksigner verify`, putting `$JAVA_HOME/bin` on PATH.
 
+**iOS** (on the Mac with Xcode 16+; one command does web copy, `cap sync`, a Simulator build, a signed archive and an install on a paired iPhone):
+```
+cd ~/Developer/lg-iptv-github && git pull -q && bash ios-app/build-mac.sh          # all
+bash ios-app/build-mac.sh sim | archive | device                                   # one step
+```
+- Signing is automatic. The team comes from `$KAYAN_TEAM` or the OU of the first "Apple Development" certificate in the keychain.
+- Output goes to `~/Desktop/KayanIPTV-ios/` (`KayanIPTV.xcarchive` → Xcode Organizer → Distribute App → TestFlight). Never upload to App Store Connect / TestFlight without Amr's explicit ask.
+- Info.plist already has ATS arbitrary loads (IPTV is mostly http), background audio (PiP / AirPlay keep playing), local-network text, `ITSAppUsesNonExemptEncryption = false`.
+- Icon is `store/master-icon.svg` rendered to 1024 px (same art as the Android icon).
+- Raw MPEG-TS (`.ts`) does not play in iOS `<video>`; Xtream live already prefers `.m3u8` (`prefer-hls`). M3U playlists that only list `.ts` need an HLS link from the provider.
+- Provider APIs/playlists are fetched from `capacitor://localhost`, so they need CORS like on Android (most Xtream panels send it).
+
 **Sideload release:** run `gh release create vX.Y.Z KayanIPTV.apk`. The Downloader code **3617910** (https://aftv.news/3617910) points to `releases/latest/download/KayanIPTV.apk`, so a new release updates it automatically.
 
 ## Testing
 - `node lg-iptv/service/guard.test.js` checks the helper token, CORS, and blocked targets.
 - `node lg-iptv/js/privacy.test.js` checks the PIN hash and that a backup omits passwords and the PIN.
 - Live and VOD still have to be played on the real TV after a helper change. Package `lg-iptv` together with `lg-iptv/service`.
+
+## UI rules added in 1.0.6
+- **Search is first** in the top menu (magnifier pill). It is not a landing section (`firstSection()` skips it).
+- **Enter starts the search**: keyboard Enter, remote OK on the field, iOS/Android keyboard "Search"/"Go" (the field is `type=search`, `enterkeyhint=search`, inside a `<form>`; submit, Enter and `change` all search). Results get the focus.
+- **Player controls** (`player.js`): auto-hide only while really playing (`mayAutoHide()`: not paused, failed, opening/buffering, scrubbing or in a drawer). Any key (except volume), mouse move, touch or click brings them back and restarts the timer. The pause card sits above the controls and never hides them. A finger tap on the picture toggles the controls; one tap that arrives as two clicks is ignored (`shownAt`). The control bars have `z-index: 10` above the video.
+- **Android native player** (`NativePlayerActivity`): Media3 `PlayerView` controller is on (seek bar, ±10 s), shows on any remote key and on tap, hides after 4 s while playing, stays while paused.
+- **Touch devices** (`html.touch`): an on-screen Back arrow appears in the top bar whenever there is a level to go back to (`App.canGoBack()`); the colour-button hints are hidden. iOS never shows the Exit dialog.
 
 ## Known issues / open work
 - **Old webOS install:** `com.amrkz.lumioplayer` may still be on the TV. Remove it by hand. Storage does not move to `com.amrkz.kayaniptv`. Do not rename the new id after the first Seller Lounge submission.

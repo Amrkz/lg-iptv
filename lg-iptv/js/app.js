@@ -1231,7 +1231,7 @@ const App = (() => {
 
     if (a.classList.contains('navbtn')) {
       if (dir === 'LEFT' || dir === 'RIGHT') {
-        const navs = Array.from(document.querySelectorAll('#home .topbar .navbtn'));
+        const navs = Array.from(document.querySelectorAll('#home .topbar .navbtn:not(.hidden)'));
         const n = navs[navs.indexOf(a) + (dir === 'RIGHT' ? 1 : -1) * (I18n.rtl ? -1 : 1)]; // the top bar is mirrored in Arabic
         if (n) n.focus();
         return true;
@@ -1325,13 +1325,34 @@ const App = (() => {
     clearTimeout(heroTimer);
     UI.setMessage(rows(), SEARCH_HINT);
     const input = UI.showSearch(hero());
-    input.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => runSearch(input.value, false), 350); });
-    input.addEventListener('keydown', (e) => { if (e.keyCode === KEYS.ENTER) { clearTimeout(searchTimer); runSearch(input.value, true); } });
+    if (lastQuery) input.value = lastQuery; // coming back to Search keeps the last words
+    let lastRun = '';
+    const go = () => { // Enter / OK / the keyboard's Search key: search now, then put the cursor on the first result
+      clearTimeout(searchTimer);
+      lastRun = input.value.trim();
+      runSearch(input.value, true);
+      if (document.documentElement.classList.contains('touch') && input.blur) input.blur(); // put the phone keyboard away
+    };
+    input.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { lastRun = input.value.trim(); runSearch(input.value, false); }, 350); });
+    input.addEventListener('keydown', (e) => {
+      const enter = e.keyCode === KEYS.ENTER || e.key === 'Enter' || e.key === 'Go' || e.key === 'Search';
+      if (!enter || e.isComposing) return;
+      e.preventDefault();
+      go();
+    });
+    const form = input.form;
+    if (form) form.addEventListener('submit', (e) => { e.preventDefault(); if (input.value.trim() !== lastRun || !railRows().length) go(); });
+    // webOS and some Android keyboards close with "Done" and only send change: search if it was not searched yet
+    input.addEventListener('change', () => { if (input.value.trim() !== lastRun) { lastRun = input.value.trim(); runSearch(input.value, false); } });
+    input.addEventListener('search', () => { if (input.value.trim() !== lastRun) go(); }); // the clear (x) / Search key of type=search
     input.focus();
+    if (lastQuery) runSearch(lastQuery, false);
   }
 
+  let lastQuery = '';
   function runSearch(q, focusFirst) {
     q = (q || '').trim();
+    lastQuery = q;
     if (q.length < 2) { UI.setMessage(rows(), SEARCH_HINT); return; }
     const seq = ++searchSeq;
     UI.setMessage(rows(), tr('Searching…'));
@@ -1358,7 +1379,7 @@ const App = (() => {
   const DEFAULT_SECTION = 'movies'; // first run, nothing remembered yet
 
   const firstSection = () => {
-    const b = UI.$('.navbtn[data-cat]');
+    const b = UI.$('.navbtn[data-cat]:not([data-cat="search"])'); // Search sits first in the menu but is not a section to land on
     return b ? b.dataset.cat : 'live';
   };
 
@@ -1430,6 +1451,7 @@ const App = (() => {
   // navigation
   UI.$$('.navbtn[data-cat]').forEach(b => {
     b.addEventListener('click', () => {
+      if (!homeVisible()) return; // signed out or another screen on top
       const cat = b.dataset.cat;
       if (cat === 'search') showSearch();
       else openSection(cat, true);
@@ -1535,6 +1557,17 @@ const App = (() => {
     UI.showScreen('login');
   }
 
-  return { onBack, onArrow, onColor, onPlayerClosed, requestDownload, showDownloads, showSettings };
+  // Phones and tablets have no Back key on screen (iPhone has none at all): show an on-screen Back
+  // arrow whenever there is a level to go back to (a category, episodes, or an open picker).
+  const canGoBack = () => homeVisible() && (themeOpen || confirmOpen || pickerOpen || view === 'episodes' || view === 'category');
+  (function touchBack() {
+    const btn = UI.$('#touch-back');
+    if (!btn) return;
+    btn.addEventListener('click', () => { onBack(); });
+    if (!document.documentElement.classList.contains('touch')) return; // TVs use the remote's Back key
+    setInterval(() => { const want = canGoBack(); if (btn.classList.contains('hidden') === want) btn.classList.toggle('hidden', !want); }, 400);
+  })();
+
+  return { onBack, onArrow, onColor, onPlayerClosed, requestDownload, showDownloads, showSettings, canGoBack };
 })();
 window.App = App;

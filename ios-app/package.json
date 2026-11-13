@@ -1,0 +1,21 @@
+{
+  "name": "kayan-iptv-ios",
+  "version": "1.0.6",
+  "description": "Kayan IPTV for iPhone and iPad (Capacitor)",
+  "private": true,
+  "scripts": {
+    "copy-web": "node scripts/copy-web.js",
+    "sync": "node scripts/copy-web.js && npx cap sync ios",
+    "open": "npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/app": "^7.1.0",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/filesystem": "^7.1.4",
+    "@capacitor/ios": "^7.4.3",
+    "@capacitor/status-bar": "^7.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3"
+  }
+}

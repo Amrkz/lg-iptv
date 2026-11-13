@@ -1280,3 +1280,4 @@ html[data-theme="clay"] .swatch-clay {
 html[data-theme] #home > .rows, html[data-theme] #home > .rows .row { background: transparent !important; }
 html[data-theme="neo"] #home { background: #fff5e8; }
 html[data-theme="swiss"] #home { background: #fff; }
+html[data-theme="neo"]:not([lang="ar"]) .navbtn { font-size: 23px; padding-left: 14px; padding-right: 14px; }

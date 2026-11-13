@@ -82,7 +82,7 @@ const Player = (() => {
 
   let ctx = null, info = null, alts = [];
   let hls = null, retries = 0, started = false, stallTimer = null;
-  let hideTimer = null, toastTimer = null;
+  let hideTimer = null, toastTimer = null, shownAt = 0;
   let scrub = null;                 // { pos, n, ts, timer } while the user is dragging the bar
   let skipAcc = 0, skipTs = 0, skipFrom = 0;
   let upShown = false, upDismissed = false, resumeDone = false, upLeft = UP_COUNT_MS, upLastTick = 0;
@@ -176,16 +176,19 @@ const Player = (() => {
   }
 
   // ---------- overlay ----------
+  // The controls hide on their own only while the picture is really playing.
+  // Paused, failed, still opening/buffering, scrubbing, or a drawer: they stay until the user leaves them.
+  const mayAutoHide = () => !video.paused && !failed && !drawerOpen() && !scrub && started && spinner.classList.contains('hidden');
   function armHide() {
     clearTimeout(hideTimer);
-    // Paused, failed, scrubbing, or a drawer: the controls stay until the user leaves them.
-    if (!overlayVisible() || video.paused || failed || drawerOpen() || scrub) return;
+    if (!overlayVisible() || !mayAutoHide()) return;
     hideTimer = setTimeout(hideOverlay, HIDE_AFTER);
   }
 
   function showOverlay(focusEl) {
     if (stillOpen) return;
     hideBanner();
+    if (!overlayVisible()) shownAt = Date.now();
     overlayEl.classList.remove('hide');
     miniEl.classList.add('hide');
     // webOS drops a focus() that happens in the same turn the controls become visible
@@ -201,7 +204,7 @@ const Player = (() => {
   }
 
   function hideOverlay() {
-    if (drawerOpen() || scrub || failed || video.paused) return;
+    if (!mayAutoHide()) return;
     forceHideOverlay();
     if (upShown) { upNextBtn.focus(); return; } // so OK plays the next episode
     if (skipShown) { skipBtn.focus(); return; }
@@ -1295,8 +1298,9 @@ const Player = (() => {
         pcPlot.textContent = d.plot || '';
       }, () => {});
     }
-    forceHideOverlay();
-    miniEl.classList.add('hide');
+    // The card sits above the controls; it never takes them away (a paused picture keeps its controls).
+    clearTimeout(hideTimer);
+    if (!overlayVisible()) miniEl.classList.add('hide');
     pauseCard.classList.remove('hidden');
     pauseCardShown = true;
   }
@@ -1850,8 +1854,8 @@ const Player = (() => {
     }
     if (pauseCardShown) {
       hidePauseCard();
-      // the first key only brings the controls back, except for the transport keys
-      if (k !== KEYS.PLAY && k !== KEYS.PAUSE && k !== KEYS.STOP && k !== KEYS.BACK) { e.preventDefault(); showOverlay(B.play); return; }
+      // with the controls hidden, the first key only brings them back, except for the transport keys
+      if (!overlayVisible() && k !== KEYS.PLAY && k !== KEYS.PAUSE && k !== KEYS.STOP && k !== KEYS.BACK) { e.preventDefault(); showOverlay(B.play); return; }
     }
 
     if (k === KEYS.BACK) { e.preventDefault(); onBackKey(true); return; }
@@ -1890,8 +1894,12 @@ const Player = (() => {
       return;
     }
     if (k === KEYS.ENTER) { e.preventDefault(); onEnter(); return; }
-    if (dir) { e.preventDefault(); onArrow(dir); }
+    if (dir) { e.preventDefault(); onArrow(dir); return; }
+    // any other key (except volume / mute and modifier keys) brings the controls back
+    if (VOLUME_KEYS.indexOf(k) >= 0 || (k >= 16 && k <= 18) || k === 91 || k === 229) return;
+    if (!overlayVisible()) showOverlay(B.play); else armHide();
   }
+  const VOLUME_KEYS = [447, 448, 449, 173, 174, 175, 24, 25, 164, 10000, 10001];
 
   function toggleFav() {
     if (!info || !info.fav) return;
@@ -1950,10 +1958,48 @@ const Player = (() => {
     video.currentTime = to;
     updateTime();
   });
+  // A finger tap on the picture: show the controls, or put them away when they are up (phones, tablets).
+  // A mouse / Magic Remote click on the picture: show the controls, or play/pause when they are up.
+  let lastPointer = '';
   video.addEventListener('click', () => {
-    if (!overlayVisible()) showOverlay(B.play);
-    else { togglePlay(); showOverlay(); }
+    if (!overlayVisible()) { showOverlay(B.play); return; }
+    if (Date.now() - shownAt < 450) return; // one tap can arrive as two clicks: the second must not undo the first
+    if (lastPointer === 'touch') { dismissControls(); return; }
+    togglePlay(); showOverlay();
   });
+  // Any touch or click anywhere in the player wakes the controls and restarts their timer,
+  // so they never vanish while the viewer is tapping buttons.
+  const wake = (e) => {
+    lastPointer = (e && e.pointerType) || (e && e.type === 'touchstart' ? 'touch' : lastPointer);
+    idle();
+    if (hidden() || stillOpen || sleepWarnShown) return;
+    if (pauseCardShown) { hidePauseCard(); showOverlay(); return; }
+    if (overlayVisible()) armHide();
+  };
+  if (window.PointerEvent) playerEl.addEventListener('pointerdown', wake, true);
+  else playerEl.addEventListener('touchstart', wake, { passive: true, capture: true });
+  playerEl.addEventListener('click', (e) => { if (e.target !== video && overlayVisible()) armHide(); }, true);
+  // a finger on the seek bar can drag it
+  let drag = false;
+  const seekTo = (x) => {
+    if (isLive() || !hasDuration()) return;
+    const r = seekbar.getBoundingClientRect();
+    if (!r.width) return;
+    const f = clamp((x - r.left) / r.width, 0, 1);
+    renderSeek(f * video.duration, true);
+    return f * video.duration;
+  };
+  seekbar.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'touch') return; drag = true; clearTimeout(hideTimer); seekTo(e.clientX); });
+  playerEl.addEventListener('pointermove', (e) => { if (drag) seekTo(e.clientX); });
+  const endDrag = (e) => {
+    if (!drag) return;
+    drag = false;
+    const to = seekTo(e.clientX);
+    if (to != null && isFinite(to)) { learnIntro(video.currentTime, to); video.currentTime = to; updateTime(); }
+    armHide();
+  };
+  playerEl.addEventListener('pointerup', endDrag);
+  playerEl.addEventListener('pointercancel', () => { drag = false; armHide(); });
 
   // Magic Remote pointer: moving it wakes the controls
   let lastMove = 0;
@@ -1980,6 +2026,7 @@ const Player = (() => {
   });
   video.addEventListener('playing', () => {
     retries = 0;
+    setTimeout(armHide, 0); // the controls opened while it was loading can now hide on their own
     lastMoveTs = Date.now();
     spinner.classList.add('hidden');
     tryResume();
