@@ -51,10 +51,10 @@ device() {
   [ -n "$TEAM" ] || { echo "No Apple team found."; return 1; }
   echo "== Device build =="
   xcodebuild -project "$PROJ" -scheme App -configuration Release -destination 'generic/platform=iOS' \
-    -derivedDataPath "$OUT/dd-dev" -allowProvisioningUpdates \
+    -derivedDataPath /tmp/kayan-dd -allowProvisioningUpdates \
     DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic build | tail -5
-  APP="$OUT/dd-dev/Build/Products/Release-iphoneos/App.app"
-  DEV=$(xcrun devicectl list devices 2>/dev/null | awk '/iPhone|iPad/ && /available|connected/ {for(i=1;i<=NF;i++) if ($i ~ /^[0-9A-F-]{25,}$/) {print $i; exit}}' || true)
+  APP="/tmp/kayan-dd/Build/Products/Release-iphoneos/App.app"
+  DEV=${KAYAN_DEVICE:-}; [ -n "$DEV" ] || DEV=$(xcrun devicectl list devices 2>/dev/null | awk '/iPhone|iPad/ && /available|connected/ {for(i=1;i<=NF;i++) if ($i ~ /^[0-9A-F-]{25,}$/) {print $i; exit}}' || true)
   if [ -n "$DEV" ]; then
     xcrun devicectl device install app --device "$DEV" "$APP" && xcrun devicectl device process launch --device "$DEV" com.amrkz.kayaniptv || true
   else

@@ -86,3 +86,5 @@ bash ios-app/build-mac.sh sim | archive | device                                
 - **Android on old WebViews** (for example a ClassPro TV): streams never started in the WebView ("slow internet"). Since 1.0.5 (code 6) the Android app hands every stream to a native Media3 ExoPlayer screen (`NativePlayerPlugin` + `NativePlayerActivity`, called from `startExo()` in `player.js`; it falls back to the page player only for a decoder/format failure). webOS and Tizen never see the plugin. Not yet confirmed on a real ClassPro box.
 - **Play closed test:** blocked on reviewer sign-in details. The plan is to give reviewers the free playlist https://iptv-org.github.io/iptv/index.m3u.
 - **Ads:** none yet. Advertising ID is declared as "No"; change that declaration before adding ads.
+
+- iOS device install (2026-11-13): `KAYAN_DEVICE=<devicectl UDID> bash ios-app/build-mac.sh device` picks the phone (iPhone Ak = 33F8C86A-F768-58BB-88FB-E391331BD1C7). Device builds use /tmp/kayan-dd as derived data, because building under ~/Desktop fails codesign ("resource fork, Finder information... not allowed").
