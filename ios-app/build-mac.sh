@@ -17,10 +17,10 @@ npm install --no-audit --no-fund
 node scripts/copy-web.js
 npx cap sync ios
 
-# Apple team: $KAYAN_TEAM, or the team (OU) of the first Apple Development / Distribution certificate
+# Apple team: $KAYAN_TEAM, then Distribution certificate, then Development certificate
 TEAM="${KAYAN_TEAM:-}"
 if [ -z "$TEAM" ]; then
-  for name in "Apple Development" "Apple Distribution" "iPhone Developer"; do
+  for name in "Apple Distribution" "Apple Development" "iPhone Developer"; do
     TEAM=$(security find-certificate -a -c "$name" -p 2>/dev/null | openssl x509 -noout -subject 2>/dev/null | sed -n 's/.*OU *= *\([A-Z0-9]\{10\}\).*/\1/p' | head -1 || true)
     [ -n "$TEAM" ] && break
   done
@@ -40,7 +40,12 @@ archive() {
   xcodebuild -project "$PROJ" -scheme App -configuration Release -destination 'generic/platform=iOS' \
     -archivePath "$OUT/KayanIPTV.xcarchive" -allowProvisioningUpdates \
     DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic archive | tail -5
-  echo "Archive: $OUT/KayanIPTV.xcarchive  (Xcode > Window > Organizer > Distribute App for TestFlight)"
+  echo "Archive: $OUT/KayanIPTV.xcarchive"
+  cp ExportOptions.plist "$OUT/ExportOptions.plist"
+  cp STORE.md "$OUT/AppStore-listing.md"
+  xcodebuild -exportArchive -archivePath "$OUT/KayanIPTV.xcarchive" \
+    -exportOptionsPlist ExportOptions.plist -exportPath "$OUT" -allowProvisioningUpdates | tail -5
+  echo "IPA exported (NOT uploaded): $OUT"
 }
 device() {
   [ -n "$TEAM" ] || { echo "No Apple team found."; return 1; }
