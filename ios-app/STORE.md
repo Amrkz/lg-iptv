@@ -105,7 +105,7 @@ Sign-in required: **No**.
 
 ## Screenshots
 Required sizes: 6.9" (1320×2868) and 6.5" (1284×2778), portrait, 3–10 each.
-Saved on the Mac in `~/Desktop/KayanIPTV-ios/screenshots/` (generated from the Simulator by `ios-app/build-mac.sh`-built app).
+Not generated yet (Simulator asset-catalog tool hung). Take them on iPhone 17 Pro Max Simulator (6.9") and resize for 6.5".
 
 ## Upload (only when Amr approves)
 Xcode → Window → Organizer → select **KayanIPTV** archive (1.0.6 (7)) → **Distribute App** → **App Store Connect** → Upload.
