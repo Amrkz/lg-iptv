@@ -7,7 +7,7 @@ Kayan IPTV is an IPTV *viewer* (no content of its own). The user signs in with X
 One web app (`lg-iptv/`) is shipped to several platforms:
 - **LG webOS TV**: app id `com.amrkz.kayaniptv`, helper `com.amrkz.kayaniptv.proxy` (the main target, a 2021 LG TV). No hyphen in either name. The id locks after the first Content Store submission.
 - **Android / Android TV**: Capacitor app, package `com.amrkz.kayaniptv` (Play Console, account amokazes@gmail.com).
-- **iPhone / iPad**: Capacitor 7 app in `ios-app/` (Swift Package Manager, no CocoaPods), bundle id `com.amrkz.kayaniptv`, version 1.0.6 (build 7).
+- **iPhone / iPad**: Capacitor 7 app in `ios-app/` (Swift Package Manager, no CocoaPods), bundle id `com.amrkz.kayaniptv`, version 1.0.6 (build 8). **Landscape-only since build 8** (iPhone and iPad; the TV layout only filled a thin strip in portrait). App Store Connect record exists: Apple ID `6834382655`, SKU `kayaniptv-ios` (listing details and status in `ios-app/STORE.md`).
 - **Samsung Tizen**: `tizen-app/` (not packaged yet; needs Tizen Studio and a Samsung certificate).
 
 ## Layout
@@ -41,6 +41,7 @@ cd ~/Developer/lg-iptv-github && git pull -q && ares-package lg-iptv lg-iptv/ser
  && ares-install -d tv ~/Desktop/KayanIPTV/com.amrkz.kayaniptv_1.0.0_all.ipk && ares-launch -d tv com.amrkz.kayaniptv
 ```
 If the TV is off, send it a Wake-on-LAN packet first. Uninstall the old `com.amrkz.lumioplayer` app by hand first; its logins do not move. A healthy helper listens on port `18491` (the TV's LAN address and `127.0.0.1`, or `0.0.0.0` only if the TV reports no LAN address). The log is `/tmp/kayan-proxy.log`.
+As of Nov 13, 2026 the TV runs 1.0.6 under `com.amrkz.kayaniptv` and the old `com.amrkz.lumioplayer` app is gone.
 
 **Android** (JDK 21 — Capacitor 7 and Android Gradle Plugin 8.7 do not build on JDK 17):
 ```
@@ -58,10 +59,11 @@ cd ~/Developer/lg-iptv-github && git pull -q && bash ios-app/build-mac.sh       
 bash ios-app/build-mac.sh sim | archive | device                                   # one step
 ```
 - Signing is automatic. The team comes from `$KAYAN_TEAM` or the OU of the first "Apple Development" certificate in the keychain.
-- Output goes to `~/Desktop/KayanIPTV-ios/` (`KayanIPTV.xcarchive` → Xcode Organizer → Distribute App → TestFlight). Never upload to App Store Connect / TestFlight without Amr's explicit ask.
+- Output goes to `~/Desktop/KayanIPTV-ios/` (`KayanIPTV.xcarchive` → Xcode Organizer → Distribute App → TestFlight). Never upload to App Store Connect / TestFlight without Amr's explicit ask. (Build 1.0.6 (8) was uploaded on Nov 13, 2026 with his OK and is attached to the 1.0.6 App Store version.)
 - Info.plist already has ATS arbitrary loads (IPTV is mostly http), background audio (PiP / AirPlay keep playing), local-network text, `ITSAppUsesNonExemptEncryption = false`.
 - Icon is `store/master-icon.svg` rendered to 1024 px (same art as the Android icon).
 - Raw MPEG-TS (`.ts`) does not play in iOS `<video>`; Xtream live already prefers `.m3u8` (`prefer-hls`). M3U playlists that only list `.ts` need an HLS link from the provider.
+- **App Store screenshots** are in `store/ios-screenshots/` (6 screens each: home, live, search, player, Arabic, settings): `6.3/` 2622×1206 (the size App Store Connect requires now, "iPhone with Dynamic Island, medium display"; it is reused for every iPhone size), `6.9/` 2868×1320, `6.5/` 2778×1284, `ipad13/` 2752×2064 (required iPad 13" size). All landscape. They were made with headless Chrome (puppeteer) against the web app served locally, iPhone/iPad Safari user agent with touch, viewport 874×402 / 956×440 / 926×428 @3x and 1376×1032 @2x, signed in only with the free M3U https://iptv-org.github.io/iptv/index.m3u. On iPad the 16:9 stage is letterboxed (black bars top and bottom), same as the real app.
 - Provider APIs/playlists are fetched from `capacitor://localhost`, so they need CORS like on Android (most Xtream panels send it).
 
 **Sideload release:** run `gh release create vX.Y.Z KayanIPTV.apk`. The Downloader code **3617910** (https://aftv.news/3617910) points to `releases/latest/download/KayanIPTV.apk`, so a new release updates it automatically.
@@ -79,7 +81,8 @@ bash ios-app/build-mac.sh sim | archive | device                                
 - **Touch devices** (`html.touch`): an on-screen Back arrow appears in the top bar whenever there is a level to go back to (`App.canGoBack()`); the colour-button hints are hidden. iOS never shows the Exit dialog.
 
 ## Known issues / open work
-- **Old webOS install:** `com.amrkz.lumioplayer` may still be on the TV. Remove it by hand. Storage does not move to `com.amrkz.kayaniptv`. Do not rename the new id after the first Seller Lounge submission.
+- **Old webOS install:** `com.amrkz.lumioplayer` has been removed from Amr's TV (Nov 13, 2026). On any other TV remove it by hand; storage does not move to `com.amrkz.kayaniptv`. Do not rename the new id after the first Seller Lounge submission.
+- **App Store review:** the 1.0.6 listing is complete except the App Review contact **phone number** (required, with + country code). Add it on the version page, Save, then Add for Review → Submit for Review.
 - **Android on old WebViews** (for example a ClassPro TV): streams never started in the WebView ("slow internet"). Since 1.0.5 (code 6) the Android app hands every stream to a native Media3 ExoPlayer screen (`NativePlayerPlugin` + `NativePlayerActivity`, called from `startExo()` in `player.js`; it falls back to the page player only for a decoder/format failure). webOS and Tizen never see the plugin. Not yet confirmed on a real ClassPro box.
 - **Play closed test:** blocked on reviewer sign-in details. The plan is to give reviewers the free playlist https://iptv-org.github.io/iptv/index.m3u.
 - **Ads:** none yet. Advertising ID is declared as "No"; change that declaration before adding ads.

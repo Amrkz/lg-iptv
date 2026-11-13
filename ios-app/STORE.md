@@ -3,12 +3,16 @@
 | Field | Value |
 |---|---|
 | Bundle ID | `com.amrkz.kayaniptv` |
-| Version / Build | 1.0.6 (7) |
+| Version / Build | 1.0.6 (8), uploaded Nov 13, 2026, attached to the version |
+| App Store Connect | Apple ID `6834382655` — https://appstoreconnect.apple.com/apps/6834382655 |
+| Orientation | Landscape only (iPhone and iPad) since build 8 |
 | Team | Amr Ali — `PK946N7D6L` |
-| SKU (suggested) | `kayaniptv-ios` |
+| SKU | `kayaniptv-ios` |
 | Primary category | Entertainment (secondary: Utilities) |
 | Price | Free, no in-app purchases |
-| Privacy policy URL | https://amrkz.github.io/lg-iptv/ (fallback: https://raw.githubusercontent.com/Amrkz/lg-iptv/main/PRIVACY.md) |
+| Privacy policy URL | https://amrkz.github.io/lg-iptv/ (set for English and Arabic; fallback: https://raw.githubusercontent.com/Amrkz/lg-iptv/main/PRIVACY.md) |
+| Content rights | "No, it does not contain, show, or access third-party content" (player only, ships no content) |
+| Availability | All 175 countries or regions |
 | Support URL | https://github.com/Amrkz/lg-iptv (support email: amokazes@gmail.com) |
 | Marketing URL | https://amrkz.github.io/lg-iptv/ |
 | Copyright | © 2026 Amr Ali |
@@ -104,9 +108,15 @@ No sign-in or demo account is needed. No in-app purchases, no ads, no tracking.
 Sign-in required: **No**.
 
 ## Screenshots
-Required sizes: 6.9" (1320×2868) and 6.5" (1284×2778), portrait, 3–10 each.
-Not generated yet (Simulator asset-catalog tool hung). Take them on iPhone 17 Pro Max Simulator (6.9") and resize for 6.5".
+Done and uploaded (landscape, 6 per set: home, live, search, player, Arabic, settings), in `store/ios-screenshots/`:
+- `6.3/` 2622×1206 — the required iPhone size in App Store Connect ("iPhone with Dynamic Island, medium display"); App Store Connect reuses it for all iPhone sizes and localizations. **Uploaded.**
+- `ipad13/` 2752×2064 — required iPad 13" size. **Uploaded.**
+- `6.9/` 2868×1320 and `6.5/` 2778×1284 — kept for custom large-display sets (optional, not uploaded).
 
-## Upload (only when Amr approves)
+## Submission status (Nov 13, 2026)
+Saved in App Store Connect: English + Arabic name, subtitle, promo text, description, keywords, URLs, copyright, version 1.0.6 with build 8, categories (Entertainment / Utilities), age rating 4+, content rights, Free in all countries, App Privacy "Data Not Collected" (published), privacy URL for both languages, screenshots.
+**Not submitted yet:** App Store Connect requires a phone number (with + country code) in App Review → Contact Information. Fill it (plus name Amr Ali, email amokazes@gmail.com, sign-in required = No, the notes above), Save, then Add for Review → Submit for Review.
+
+## Upload (done for build 8; future builds only when Amr approves)
 Xcode → Window → Organizer → select **KayanIPTV** archive (1.0.6 (7)) → **Distribute App** → **App Store Connect** → Upload.
 If no app record exists yet: App Store Connect → Apps → + → New App → iOS, name "Kayan IPTV", bundle `com.amrkz.kayaniptv`, SKU `kayaniptv-ios`, primary language English.
