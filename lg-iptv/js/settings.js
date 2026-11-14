@@ -39,8 +39,34 @@ const Settings = (() => {
     const v = API.pref('set_' + key);
     return (v === null || v === undefined) ? DEF[key] : v;
   }
+  function canonicalSubSize(v) {
+    const s = String(v == null ? '' : v).toLowerCase();
+    if (s === 's' || s === 'small') return 's';
+    if (s === 'm' || s === 'medium') return 'm';
+    if (s === 'l' || s === 'large') return 'l';
+    return '';
+  }
+  function currentSubSize() {
+    const raw = API.pref('set_subSize');
+    if (raw !== null && raw !== undefined) return canonicalSubSize(raw);
+    return canonicalSubSize((API.pref('subStyle') || {}).size);
+  }
+  function subSizeLabel(id) {
+    if (id === 's') return tr('Small');
+    if (id === 'm') return tr('Medium');
+    if (id === 'l') return tr('Large');
+    return tr('Normal');
+  }
+  function currentAspect() {
+    return API.pref('aspect') || get('aspect') || 'fit';
+  }
+  function aspectLabel(id) {
+    const map = { fit: 'Fit', fill: 'Fill', zoom: 'Zoom', stretch: 'Stretch', '43': '4:3' };
+    return tr(map[id] || 'Fit');
+  }
   function set(key, val) {
     if (key === 'pin') { setPin(val); apply(key, val); return val; }
+    if (key === 'subSize') val = canonicalSubSize(val);
     API.pref('set_' + key, val);
     apply(key, val);
     return val;
@@ -201,7 +227,7 @@ const Settings = (() => {
     if (key === 'subLang') API.pref('subLang', val || '');
     if (key === 'subSize' || key === 'subBg') {
       const st = Object.assign({}, API.pref('subStyle') || {}, {
-        size: key === 'subSize' ? val : get('subSize'),
+        size: key === 'subSize' ? canonicalSubSize(val) : currentSubSize(),
         bg: key === 'subBg' ? val : get('subBg')
       });
       API.pref('subStyle', st);
@@ -209,12 +235,16 @@ const Settings = (() => {
   }
 
   function applyAll() {
+    // Read the player copies first. apply() below writes the settings copies
+    // and would otherwise wipe a size the viewer picked in the player.
+    const priorAspect = API.pref('aspect');
+    const priorStyle = API.pref('subStyle') || {};
     Object.keys(DEF).forEach(k => apply(k, get(k)));
-    // sync from older prefs once
-    const aspect = API.pref('aspect'); if (aspect && get('aspect') === DEF.aspect) set('aspect', aspect);
-    const st = API.pref('subStyle') || {};
-    if (st.size && get('subSize') === DEF.subSize) set('subSize', st.size);
-    if (st.bg && get('subBg') === DEF.subBg) set('subBg', !!st.bg);
+    // Copy a choice made in the player only when Settings has never stored one.
+    // An explicit "Normal" / "Fit" / Off must not be overwritten on the next start.
+    if (priorAspect && API.pref('set_aspect') == null) set('aspect', priorAspect);
+    if (priorStyle.size && API.pref('set_subSize') == null) set('subSize', priorStyle.size);
+    if (priorStyle.bg && API.pref('set_subBg') == null) set('subBg', true);
   }
 
   function stripUrlSecrets(url) {
@@ -257,6 +287,39 @@ const Settings = (() => {
     });
   }
 
+  function profileKey(p) {
+    if (!p) return '';
+    if (p.type === 'xtream') return 'x:' + (p.server || '') + '|' + (p.user || '');
+    return 'm:' + stripUrlSecrets(p.m3u || '');
+  }
+  // A backup leaves passwords out on purpose. Restoring it must not wipe the
+  // passwords already stored on this TV, or the saved logins stop working.
+  function mergeImportedProfiles(incoming) {
+    const existing = getProfiles();
+    const byKey = {};
+    existing.forEach(p => { byKey[profileKey(p)] = p; });
+    const used = {};
+    const merged = (incoming || []).map(p => {
+      const prev = byKey[profileKey(p)];
+      used[profileKey(p)] = true;
+      const next = {
+        id: (p && p.id) || (prev && prev.id) || ('p' + Date.now()),
+        name: (p && p.name) || (prev && prev.name) || '',
+        type: (p && p.type) || (prev && prev.type) || 'xtream',
+        server: (p && p.server) || (prev && prev.server) || '',
+        user: (p && p.user) || (prev && prev.user) || '',
+        pass: (p && p.pass) || (prev && prev.pass) || '',
+        m3u: (p && p.m3u) || (prev && prev.m3u) || '',
+        ts: (p && p.ts) || (prev && prev.ts) || 0
+      };
+      if (prev && prev.m3u && stripUrlSecrets(prev.m3u) === stripUrlSecrets(next.m3u) && prev.m3u.length > String(next.m3u || '').length) {
+        next.m3u = prev.m3u;
+      }
+      return next;
+    });
+    existing.forEach(p => { if (!used[profileKey(p)]) merged.push(p); });
+    return merged.slice(0, 8);
+  }
   function importBackup(text) {
     let data;
     try { data = JSON.parse(text); } catch (e) { return { ok: false, error: 'badjson' }; }
@@ -269,7 +332,7 @@ const Settings = (() => {
       }
       if (Object.prototype.hasOwnProperty.call(DEF, k)) set(k, data.settings[k]);
     });
-    if (Array.isArray(data.profiles)) saveProfiles(data.profiles);
+    if (Array.isArray(data.profiles)) saveProfiles(mergeImportedProfiles(data.profiles));
     if (data.prefs) Object.keys(data.prefs).forEach(k => { if (data.prefs[k] != null) API.pref(k, data.prefs[k]); });
     if (data.lang) { try { localStorage.setItem('iptv_lang', data.lang); } catch (e) {} }
     return { ok: true };
@@ -309,13 +372,16 @@ const Settings = (() => {
     }
     const legacy = String(API.pref('set_pin') || '');
     if (/^\d{4}$/.test(legacy)) return digits === legacy;
-    return true;
+    return false; // the lock is on, but nothing is stored: stay shut
   }
 
   function catLocked(name) {
     if (!get('pinOn')) return false;
     if (!get('lockAdult')) return false;
-    return /\b(adult|xxx|18\+|porn|nsfw)\b/i.test(String(name || ''));
+    const s = String(name || '');
+    if (/\b(adult|xxx|porn|nsfw)\b/i.test(s) || /(?:^|[^\d])18\s*\+/.test(s) || /\+\s*18\b/.test(s)) return true;
+    // Arabic category names used by providers. Word boundaries do not work on Arabic letters.
+    return /للكبار|للبالغين|إباحي|اباحي|إباحية|اباحية|للكبار فقط/.test(s);
   }
 
   function hlsBufferOpts(isLive) {
@@ -368,7 +434,7 @@ const Settings = (() => {
     map.player = [
       item(tr('Live buffer'), tr('{n} seconds', { n: get('liveBuffer') }), 'live-buffer'),
       item(tr('Movie buffer'), tr('{n} seconds', { n: get('vodBuffer') }), 'vod-buffer'),
-      item(tr('Picture size'), tr(String(get('aspect') || 'fit')), 'aspect'),
+      item(tr('Picture size'), aspectLabel(currentAspect()), 'aspect'),
       item(tr('Auto-play next episode'), onOff(get('autoNext')), 'auto-next'),
       item(tr('Resume playback'), onOff(get('resume')), 'resume')
     ];
@@ -376,9 +442,9 @@ const Settings = (() => {
 
     // 4. Subtitles & audio
     map.tracks = [
-      item(tr('Preferred audio'), get('audioLang') || tr('Default'), 'audio-lang'),
-      item(tr('Preferred subtitles'), get('subLang') || tr('Default'), 'sub-lang'),
-      item(tr('Subtitle size'), get('subSize') || tr('Normal'), 'sub-size'),
+      item(tr('Preferred audio'), API.pref('audioLang') || get('audioLang') || tr('Default'), 'audio-lang'),
+      item(tr('Preferred subtitles'), API.pref('subLang') || get('subLang') || tr('Default'), 'sub-lang'),
+      item(tr('Subtitle size'), subSizeLabel(currentSubSize()), 'sub-size'),
       item(tr('Subtitle background'), onOff(get('subBg')), 'sub-bg')
     ];
     cats.push({ category_id: 'tracks', category_name: tr('Subtitles & audio'), kind: 'settings', limit: 10 });
@@ -455,6 +521,7 @@ const Settings = (() => {
 
   return {
     VERSION, DEF, THEMES, get, set, all, applyAll, build, cycle, toggle,
+    canonicalSubSize, currentSubSize, subSizeLabel, currentAspect, aspectLabel,
     exportBackup, importBackup, resetAll, clearCache,
     getProfiles, saveProfiles, rememberProfile, currentProfileId, setCurrentProfileId,
     pinOk, catLocked, hlsBufferOpts,

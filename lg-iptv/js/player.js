@@ -106,7 +106,7 @@ const Player = (() => {
   let savedLive = null;                            // live channel to return to from a replay
 
   let autoChain = 0, lastAdvance = 0, stillOpen = false;
-  let sleepAt = 0, sleepEnd = false, sleepWarnShown = false;
+  let sleepAt = 0, sleepMin = 0, sleepEnd = false, sleepWarnShown = false;
   let pauseCardTimer = null, pauseCardShown = false;
   let langApplied = false, langTries = 0;
   let introRange = null, skipShown = false, learnOff = 0;
@@ -307,12 +307,25 @@ const Player = (() => {
   }
 
   // ---------- subtitle style ----------
+  function subSizePx(v) {
+    const s = String(v || '').toLowerCase();
+    if (s === 's' || s === 'small') return 32;
+    if (s === 'l' || s === 'large') return 60;
+    if (s === 'm' || s === 'medium') return 44;
+    return 0;
+  }
+  function subSizeId(v) {
+    const px = subSizePx(v);
+    if (px === 32) return 's';
+    if (px === 60) return 'l';
+    if (px === 44 && v) return 'm';
+    return '';
+  }
   function applySubStyle() {
     let st = document.getElementById('cue-style');
     const pref = API.pref('subStyle');
-    if (!pref || !pref.size) { if (st) st.textContent = ''; return; }
-    let px = 44;
-    SUB_SIZES.forEach(s => { if (s.id === pref.size) px = s.px; });
+    const px = pref && subSizePx(pref.size);
+    if (!px) { if (st) st.textContent = ''; return; }
     if (!st) { st = document.createElement('style'); st.id = 'cue-style'; document.head.appendChild(st); }
     st.textContent = 'video::cue { font-size: ' + px + 'px; ' +
       (pref.bg ? 'background-color: rgba(0, 0, 0, 0.75);' : 'background-color: transparent; text-shadow: 0 0 6px #000, 0 0 6px #000;') + ' }';
@@ -1062,7 +1075,7 @@ const Player = (() => {
     saveProgress();
     stop();
     ctx = null; info = null; savedLive = null; epg = [];
-    sleepAt = 0; sleepEnd = false;
+    sleepAt = 0; sleepMin = 0; sleepEnd = false;
     updateSleepLabel();
     UI.showScreen('home');
     if (returnFocus && document.body.contains(returnFocus) && returnFocus.offsetParent !== null) returnFocus.focus();
@@ -1321,6 +1334,7 @@ const Player = (() => {
   }
 
   function setSleep(min) {
+    sleepMin = min;
     sleepAt = Date.now() + min * 60000;
     sleepEnd = false;
     sleepWarnShown = false;
@@ -1335,6 +1349,7 @@ const Player = (() => {
 
   function cancelSleep() {
     sleepAt = 0;
+    sleepMin = 0;
     sleepEnd = false;
     hideSleepCard();
     updateSleepLabel();
@@ -1342,6 +1357,7 @@ const Player = (() => {
 
   function sleepDone() {
     sleepAt = 0;
+    sleepMin = 0;
     sleepEnd = false;
     hideSleepCard();
     back();
@@ -1662,6 +1678,7 @@ const Player = (() => {
       chips.className = 'd-chips';
       drawerBody.appendChild(chips);
       const st = API.pref('subStyle') || { size: '', bg: false };
+      const sizeId = subSizeId(st.size);
       const save = (o, key) => { API.pref('subStyle', o); applySubStyle(); buildTracks(key); };
       const chip = (text, on, key, onClick) => {
         const c = document.createElement('button');
@@ -1672,7 +1689,7 @@ const Player = (() => {
         chips.appendChild(c);
         if (key === focusKey) focusEl = c;
       };
-      SUB_SIZES.forEach(s => chip(s.name, st.size === s.id, 'size' + s.id, () => save({ size: s.id, bg: st.size ? st.bg : true }, 'size' + s.id)));
+      SUB_SIZES.forEach(s => chip(s.name, sizeId === s.id, 'size' + s.id, () => save({ size: s.id, bg: st.size ? st.bg : true }, 'size' + s.id)));
       chip(tr('Dark background'), !!st.bg, 'bg', () => save({ size: st.size || 'm', bg: !st.bg }, 'bg'));
       const hint = document.createElement('div');
       hint.className = 'd-hint';
@@ -1723,11 +1740,11 @@ const Player = (() => {
     drawerBody.innerHTML = '';
     drawerBody.appendChild(dTitle(tr('Sleep timer')));
     const opts = [{ label: tr('Off'), on: !sleepAt && !sleepEnd, set: () => { cancelSleep(); toast(tr('Sleep timer off')); } }];
-    [30, 60, 90, 120].forEach(m => opts.push({ label: tr('{n} minutes', { n: m }), on: false, set: () => setSleep(m) }));
+    [30, 60, 90, 120].forEach(m => opts.push({ label: tr('{n} minutes', { n: m }), on: !!sleepAt && !sleepEnd && sleepMin === m, set: () => setSleep(m) }));
     if (!isLive()) {
       opts.push({
         label: ctx && ctx.type === 'series' ? tr('End of this episode') : tr('End of this film'), on: sleepEnd,
-        set: () => { sleepEnd = true; sleepAt = 0; sleepWarnShown = false; updateSleepLabel(); toast(tr('Stops at the end')); }
+        set: () => { sleepEnd = true; sleepAt = 0; sleepMin = 0; sleepWarnShown = false; updateSleepLabel(); toast(tr('Stops at the end')); }
       });
     }
     let cur = null;

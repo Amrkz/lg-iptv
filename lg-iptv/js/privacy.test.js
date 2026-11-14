@@ -119,6 +119,60 @@ check('reset clears the hashed PIN', function () {
   assert.ok(!Settings.get('pin'));
 });
 
+check('a parental lock with no PIN stays shut', function () {
+  Settings.set('pin', 'nope');
+  Settings.set('pinOn', true);
+  assert.strictEqual(Settings.pinOk('0000'), false);
+  assert.strictEqual(Settings.pinOk('1234'), false);
+  Settings.set('pinOn', false);
+});
+
+check('adult category names in Arabic stay locked', function () {
+  Settings.set('pin', '1234');
+  Settings.set('pinOn', true);
+  Settings.set('lockAdult', true);
+  assert.strictEqual(Settings.catLocked('Adult Movies'), true);
+  assert.strictEqual(Settings.catLocked('18+'), true);
+  assert.strictEqual(Settings.catLocked('+18'), true);
+  assert.strictEqual(Settings.catLocked('أفلام للكبار'), true);
+  assert.strictEqual(Settings.catLocked('إباحي'), true);
+  assert.strictEqual(Settings.catLocked('أخبار'), false);
+  assert.strictEqual(Settings.catLocked('Movies'), false);
+  assert.strictEqual(Settings.catLocked('2018+'), false);
+  Settings.set('pinOn', false);
+  Settings.set('lockAdult', false);
+});
+
+check('subtitle size words match the sizes the player understands', function () {
+  Settings.set('subSize', 'large');
+  assert.strictEqual(Settings.get('subSize'), 'l');
+  assert.strictEqual(API.pref('subStyle').size, 'l');
+  Settings.set('subSize', 'small');
+  assert.strictEqual(API.pref('subStyle').size, 's');
+  assert.strictEqual(Settings.subSizeLabel(Settings.get('subSize')), 'Small');
+  Settings.set('subSize', '');
+  assert.strictEqual(API.pref('subStyle').size, '');
+});
+
+check('importing a backup keeps a password already stored on this TV', function () {
+  Settings.saveProfiles([{
+    id: 'keep1', name: 'Home', type: 'xtream', server: 'http://keep.example', user: 'amy', pass: 'stay-secret', m3u: ''
+  }, {
+    id: 'keep2', name: 'keep-list', type: 'm3u', user: '', pass: '', server: '',
+    m3u: 'http://user:stay-secret@host.example/get.php?username=amy&password=stay-secret&type=m3u'
+  }]);
+  var raw = Settings.exportBackup();
+  assert.ok(raw.indexOf('stay-secret') < 0);
+  var r = Settings.importBackup(raw);
+  assert.strictEqual(r.ok, true);
+  var xt = Settings.getProfiles().filter(function (p) { return p.user === 'amy' && p.type === 'xtream'; })[0];
+  var mu = Settings.getProfiles().filter(function (p) { return p.name === 'keep-list'; })[0];
+  assert.ok(xt);
+  assert.strictEqual(xt.pass, 'stay-secret');
+  assert.ok(mu.m3u.indexOf('stay-secret') >= 0);
+  assert.ok(Settings.exportBackup().indexOf('stay-secret') < 0);
+});
+
 if (failed) {
   console.error(failed + ' failed');
   process.exit(1);

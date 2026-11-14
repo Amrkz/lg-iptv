@@ -83,6 +83,7 @@ const App = (() => {
   // flat, ordered episode list of a series (episode number order inside each season)
   function episodesFromInfo(series, info) {
     const c = API.getConfig();
+    if (!c || !c.server || c.user == null || c.pass == null) return { cats: [], map: {}, flat: [] };
     const u = encodeURIComponent(c.user), p = encodeURIComponent(c.pass);
     const eps = (info && info.episodes) || {};
     const cats = [], map = {}, flat = [];
@@ -571,7 +572,7 @@ const App = (() => {
     stopSlideshow();
     slides = [];
     UI.clearHero(hero());
-    UI.setMessage(rows(), tr('Loading…'));
+    UI.setMessage(rows(), tr('Loading…'), 'loading');
 
     return API.getCategories(kind).then(cats => {
       if (id !== loadId) return;
@@ -597,8 +598,19 @@ const App = (() => {
         let shown = categories;
         if (allCats.length > 1) {
           // first row lists EVERY category, so panels with hundreds of them stay reachable
-          itemsByCat.__cats = allCats.map(c => ({ name: c.category_name, cat: c }));
-          shown = [{ category_id: '__cats', category_name: tr('All categories'), limit: 1000 }].concat(categories);
+          let chipCats = allCats;
+          if (Settings.get('hideEmptyCats')) {
+            chipCats = allCats.filter(c => {
+              const got = itemsByCat[c.category_id];
+              if (!got) return true; // not loaded in this pass: keep it reachable
+              const n = typeof got.total === 'number' ? got.total : got.length;
+              return n > 0;
+            });
+          }
+          if (chipCats.length) {
+            itemsByCat.__cats = chipCats.map(c => ({ name: c.category_name, cat: c }));
+            shown = [{ category_id: '__cats', category_name: tr('All categories'), limit: 1000 }].concat(categories);
+          }
         }
         if (kind === 'live') {
           const rec = API.getRecent();
@@ -646,7 +658,7 @@ const App = (() => {
         setSlides(categories, itemsByCat, kind);
       });
     }).catch(e => {
-      if (id === loadId) UI.setMessage(rows(), tr('Could not load: {msg}', { msg: e && e.message ? e.message : e }));
+      if (id === loadId) UI.setMessage(rows(), tr('Could not load: {msg}', { msg: e && e.message ? e.message : e }), 'error');
     });
   }
 
@@ -655,7 +667,7 @@ const App = (() => {
     view = 'category';
     stopSlideshow();
     UI.clearHero(hero());
-    UI.setMessage(rows(), tr('Loading…'));
+    UI.setMessage(rows(), tr('Loading…'), 'loading');
     API.getStreams(kind, cat.category_id).then(items => {
       if (id !== loadId) return;
       items = Array.isArray(items) ? items : [];
@@ -667,7 +679,7 @@ const App = (() => {
       const firstCard = UI.$('.card');
       if (firstCard) firstCard.focus();
     }).catch(e => {
-      if (id === loadId) UI.setMessage(rows(), tr('Could not load: {msg}', { msg: e && e.message ? e.message : e }));
+      if (id === loadId) UI.setMessage(rows(), tr('Could not load: {msg}', { msg: e && e.message ? e.message : e }), 'error');
     });
   }
 
@@ -678,7 +690,7 @@ const App = (() => {
       promptValue(tr('Parental control'), tr('Enter PIN'), '', code => {
         if (!Settings.pinOk(code)) { openConfirm(tr('Parental control'), tr('Wrong PIN'), [{ label: tr('OK'), primary: true }]); return; }
         showCategory(currentKind, item.cat);
-      });
+      }, { secret: true });
       return;
     }
     if (item._dlAction === 'season') { downloadSeason(item._seasonKey, item._seasonEps); return; }
@@ -719,7 +731,7 @@ const App = (() => {
   function showEpisodes(series) {
     const id = ++loadId;
     view = 'episodes';
-    UI.setMessage(rows(), tr('Loading episodes…'));
+    UI.setMessage(rows(), tr('Loading episodes…'), 'loading');
     UI.setHero(hero(), series, 'series');
     API.getSeriesInfo(series.series_id).then(info => {
       if (id !== loadId) return;
@@ -740,11 +752,11 @@ const App = (() => {
       const firstCard = UI.$('.card');
       if (firstCard) firstCard.focus();
     }).catch(e => {
-      if (id === loadId) UI.setMessage(rows(), tr('Could not load episodes: {msg}', { msg: e && e.message ? e.message : e }));
+      if (id === loadId) UI.setMessage(rows(), tr('Could not load episodes: {msg}', { msg: e && e.message ? e.message : e }), 'error');
     });
   }
 
-  function promptValue(title, body, initial, onOk) {
+  function promptValue(title, body, initial, onOk, opts) {
     UI.$('#confirm-title').textContent = title || '';
     UI.$('#confirm-body').textContent = body || '';
     const box = UI.$('#confirm-actions');
@@ -755,6 +767,13 @@ const App = (() => {
     input.setAttribute('autocapitalize', 'off');
     input.setAttribute('autocorrect', 'off');
     input.setAttribute('spellcheck', 'false');
+    if (opts && opts.secret) {
+      input.type = 'password';
+      input.setAttribute('inputmode', 'numeric');
+      input.setAttribute('maxlength', '4');
+      input.setAttribute('autocomplete', 'off');
+      input.dir = 'ltr';
+    }
     box.appendChild(input);
     const ok = document.createElement('button');
     ok.className = 'd-item primary';
@@ -778,11 +797,25 @@ const App = (() => {
     const refresh = () => showSettings(true);
     if (a === 'live-buffer') { Settings.cycle('liveBuffer', [30, 45, 60, 90, 120]); refresh(); return; }
     if (a === 'vod-buffer') { Settings.cycle('vodBuffer', [15, 30, 45, 60]); refresh(); return; }
-    if (a === 'aspect') { Settings.cycle('aspect', ['fit', 'fill', 'zoom', 'stretch', '43']); refresh(); return; }
+    if (a === 'aspect') {
+      const order = ['fit', 'fill', 'zoom', 'stretch', '43'];
+      const cur = Settings.currentAspect();
+      const i = order.indexOf(cur);
+      Settings.set('aspect', order[((i < 0 ? 0 : i) + 1) % order.length]);
+      refresh();
+      return;
+    }
     if (a === 'auto-next') { Settings.toggle('autoNext'); refresh(); return; }
     if (a === 'resume') { Settings.toggle('resume'); refresh(); return; }
     if (a === 'sub-bg') { Settings.toggle('subBg'); refresh(); return; }
-    if (a === 'sub-size') { Settings.cycle('subSize', ['', 'large', 'small']); refresh(); return; }
+    if (a === 'sub-size') {
+      const order = ['', 's', 'm', 'l'];
+      const cur = Settings.currentSubSize();
+      const i = order.indexOf(cur);
+      Settings.set('subSize', order[((i < 0 ? 0 : i) + 1) % order.length]);
+      refresh();
+      return;
+    }
     if (a === 'audio-lang') {
       promptValue(tr('Preferred audio'), tr('Language code, for example en or ar. Leave blank for default.'), Settings.get('audioLang') || '', v => { Settings.set('audioLang', String(v || '').trim()); refresh(); });
       return;
@@ -803,7 +836,7 @@ const App = (() => {
           const pin = String(v || '').replace(/\D/g, '').slice(0, 4);
           if (pin.length < 4) { openConfirm(tr('Parental control'), tr('PIN must be 4 digits.'), [{ label: tr('OK'), primary: true }]); return; }
           Settings.set('pin', pin); Settings.set('pinOn', true); refresh();
-        });
+        }, { secret: true });
         return;
       }
       Settings.toggle('pinOn'); refresh(); return;
@@ -813,7 +846,7 @@ const App = (() => {
         const pin = String(v || '').replace(/\D/g, '').slice(0, 4);
         if (pin.length < 4) { openConfirm(tr('Parental control'), tr('PIN must be 4 digits.'), [{ label: tr('OK'), primary: true }]); return; }
         Settings.set('pin', pin); refresh();
-      });
+      }, { secret: true });
       return;
     }
     if (a === 'lock-adult') { Settings.toggle('lockAdult'); refresh(); return; }
@@ -860,7 +893,7 @@ const App = (() => {
     }
     if (a === 'refresh') {
       API.clearLists();
-      UI.setMessage(rows(), tr('Loading…'));
+      UI.setMessage(rows(), tr('Loading…'), 'loading');
       API.ensureLoaded().then(() => { toastHome(tr('Playlist refreshed')); openSection('movies', true); })
         .catch(e => openConfirm(tr('Playlists & accounts'), tr('Could not load: {msg}', { msg: e && e.message ? e.message : e }), [{ label: tr('OK'), primary: true }]));
       return;
@@ -875,7 +908,7 @@ const App = (() => {
     }
     if (a === 'profile-switch' && item._profile) {
       const p = item._profile;
-      UI.setMessage(rows(), tr('Signing in…'));
+      UI.setMessage(rows(), tr('Signing in…'), 'loading');
       const go = p.type === 'xtream'
         ? API.xtreamLogin(p.server, p.user, p.pass)
         : API.m3uLogin(p.m3u);
@@ -951,9 +984,8 @@ const App = (() => {
       }
       if (!active.length && !done.length) {
         slides = [];
-        UI.setMessage(rows(), tr('No downloads yet. Open a movie or episode and choose Download.'));
-        // still show storage row
         render(cats, map, 'dl');
+        UI.setMessage(rows(), tr('No downloads yet. Open a movie or episode and choose Download.'), 'empty', true);
         return;
       }
       // action chips under in-progress
@@ -978,7 +1010,7 @@ const App = (() => {
         if (el) el.focus();
       }
     };
-    UI.setMessage(rows(), tr('Loading…'));
+    UI.setMessage(rows(), tr('Loading…'), 'loading');
     if (window.Downloads) Downloads.refresh().then(paint, paint);
     else paint();
   }
@@ -1072,7 +1104,7 @@ const App = (() => {
     if (!cats.length) {
       slides = [];
       hideRecentTabs();
-      UI.setMessage(rows(), tr('Nothing to resume yet. Movies and episodes you start, and channels you watch, will show up here.'));
+      UI.setMessage(rows(), tr('Nothing to resume yet. Movies and episodes you start, and channels you watch, will show up here.'), 'empty');
       return;
     }
     // vertical tabs: one department at a time
@@ -1250,7 +1282,13 @@ const App = (() => {
         return true;
       }
       const into = I18n.rtl ? 'LEFT' : 'RIGHT';
-      if (dir === into) { focusAt(list[0], 0, 0); return true; }
+      if (dir === into) {
+        const line = linesIn(list[0])[0];
+        // In Arabic the tabs sit on the right, so enter on the card nearest them.
+        const col = I18n.rtl ? Math.max(0, line.cards.length - 1) : 0;
+        focusAt(list[0], 0, col);
+        return true;
+      }
       return true;
     }
     if (a.id === 'search-input') {
@@ -1270,8 +1308,10 @@ const App = (() => {
       if (ni >= 0 && ni < cards.length) {
         here.row._last = ni;
         place(cards[ni]);
-      } else if (ni < 0 && currentKind === 'recent' && document.querySelector('#rtabs.on')) {
-        focusRecentTab();
+      } else if (currentKind === 'recent' && document.querySelector('#rtabs.on')) {
+        // Tabs are on the left in English and on the right in Arabic.
+        const towardTabs = I18n.rtl ? ni >= cards.length : ni < 0;
+        if (towardTabs) focusRecentTab();
       }
       return true; // one icon only — never leak into the next line
     }
@@ -1323,7 +1363,7 @@ const App = (() => {
     setActiveNav('search');
     stopSlideshow();
     clearTimeout(heroTimer);
-    UI.setMessage(rows(), SEARCH_HINT);
+    UI.setMessage(rows(), SEARCH_HINT, 'empty');
     const input = UI.showSearch(hero());
     if (lastQuery) input.value = lastQuery; // coming back to Search keeps the last words
     let lastRun = '';
@@ -1353,9 +1393,9 @@ const App = (() => {
   function runSearch(q, focusFirst) {
     q = (q || '').trim();
     lastQuery = q;
-    if (q.length < 2) { UI.setMessage(rows(), SEARCH_HINT); return; }
+    if (q.length < 2) { UI.setMessage(rows(), SEARCH_HINT, 'empty'); return; }
     const seq = ++searchSeq;
-    UI.setMessage(rows(), tr('Searching…'));
+    UI.setMessage(rows(), tr('Searching…'), 'loading');
     API.search(q).then(res => {
       if (seq !== searchSeq || view !== 'search') return;
       const cats = [], map = {};
@@ -1364,11 +1404,11 @@ const App = (() => {
         if (pair[0] !== 'live') list = groupQualities(list);
         if (list.length) { cats.push({ category_id: 's_' + pair[0], category_name: pair[1], kind: pair[0], limit: 40 }); map['s_' + pair[0]] = list; }
       });
-      if (!cats.length) { UI.setMessage(rows(), tr('No results for "{q}".', { q })); return; }
+      if (!cats.length) { UI.setMessage(rows(), tr('No results for "{q}".', { q }), 'empty'); return; }
       render(cats, map, 'search'); // render() also refreshes the favorite keys that isFav reads
       if (focusFirst) { const l = railRows(); if (l.length) focusAt(l[0], 0, 0); }
     }).catch(e => {
-      if (seq === searchSeq) UI.setMessage(rows(), tr('Search failed: {msg}', { msg: e && e.message ? e.message : e }));
+      if (seq === searchSeq) UI.setMessage(rows(), tr('Search failed: {msg}', { msg: e && e.message ? e.message : e }), 'error');
     });
   }
 
@@ -1502,7 +1542,7 @@ const App = (() => {
     });
   });
 
-  ['#x-pass', '#m-url'].forEach(sel => {
+  ['#x-server', '#x-user', '#x-pass', '#m-url'].forEach(sel => {
     UI.$(sel).addEventListener('keydown', (e) => {
       if (e.keyCode === KEYS.ENTER) UI.$('#login-btn').click();
     });
@@ -1543,13 +1583,13 @@ const App = (() => {
   if (API.getConfig()) {
     UI.showScreen('home');
     setActiveNav(startSection()); // the menu shows the right tab while the list loads
-    UI.setMessage(rows(), tr('Loading…'));
+    UI.setMessage(rows(), tr('Loading…'), 'loading');
     // stay signed in: if the server or network is slow (TV just woke up), keep retrying instead of logging out
     let tries = 0;
     (function restore() {
       API.ensureLoaded().then(() => landing()).catch(e => {
         tries++;
-        UI.setMessage(rows(), ((e && e.message) || tr('Could not restore session')) + '  \u2014  ' + tr('Retrying…'));
+        UI.setMessage(rows(), ((e && e.message) || tr('Could not restore session')) + '  \u2014  ' + tr('Retrying…'), 'error');
         setTimeout(restore, Math.min(30000, 3000 * tries));
       });
     })();
