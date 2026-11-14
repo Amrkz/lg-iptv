@@ -34,9 +34,8 @@ const API = (() => {
   function getConfig() { if (!cfg) cfg = load('cfg'); return cfg; }
   // lists belong to one login: a new login must not see the last one's lists
   function clearConfig() {
-    cfg = null; m3uItems = null;
-    clearLists();
-    Object.keys(allCache).forEach(k => { delete allCache[k]; });
+    cfg = null;
+    clearSessionCaches();
     try { localStorage.removeItem('iptv_cfg'); } catch (e) {}
   }
 
@@ -76,7 +75,7 @@ const API = (() => {
       if (ui.status && String(ui.status).toLowerCase() !== 'active') throw new Error(tr('Account {status}', { status: ui.status }));
       if (ui.exp_date && Number(ui.exp_date) > 0 && Number(ui.exp_date) * 1000 < Date.now()) throw new Error(tr('Account expired'));
       const formats = Array.isArray(ui.allowed_output_formats) ? ui.allowed_output_formats : [];
-      clearLists();
+      clearSessionCaches();
       cfg = { type: 'xtream', server, user, pass, formats };
       store('cfg', cfg);
       rememberLogin({ server, user });
@@ -90,6 +89,7 @@ const API = (() => {
     return fetchText(url).then(text => {
       const items = parseM3U(text);
       if (!items.length) throw new Error(tr('No channels found in playlist'));
+      clearSessionCaches();
       m3uItems = items;
       cfg = { type: 'm3u', url };
       store('cfg', cfg);
@@ -109,6 +109,7 @@ const API = (() => {
 
   function xtreamGet(action, extra) {
     const c = getConfig();
+    if (!c || !c.server || c.user == null || c.pass == null) return Promise.reject(new Error(tr('Could not restore session')));
     return fetchJson(`${c.server}/player_api.php?username=${encodeURIComponent(c.user)}&password=${encodeURIComponent(c.pass)}&action=${action}${extra || ''}`);
   }
 
@@ -263,20 +264,40 @@ const API = (() => {
   // ---------- TV guide: now / next for one channel ----------
   const epgCache = {};
   function b64(str) { try { return decodeURIComponent(escape(atob(str))); } catch (e) { return str || ''; } }
+  // Providers often stamp the guide in their own timezone. The setting is minutes to add.
+  function epgOffsetMs() {
+    try {
+      if (typeof Settings !== 'undefined' && Settings.get) {
+        const n = Number(Settings.get('epgOffset')) || 0;
+        if (n) return n * 60000;
+      }
+    } catch (e) {}
+    return 0;
+  }
+  function withEpgOffset(e) {
+    const off = epgOffsetMs();
+    if (!off) return e;
+    return {
+      title: e.title, desc: e.desc, startStr: e.startStr,
+      start: e.start + off, end: e.end + off, startRaw: e.start,
+      archive: e.archive, now: e.now
+    };
+  }
   function getShortEpg(streamId) {
     const c = getConfig();
     if (!c || c.type !== 'xtream' || !streamId) return Promise.resolve([]);
-    const hit = epgCache[streamId];
+    const key = streamId + ':' + epgOffsetMs();
+    const hit = epgCache[key];
     if (hit && Date.now() - hit.t < 120000) return hit.p;
     const p = xtreamGet('get_short_epg', `&stream_id=${encodeURIComponent(streamId)}&limit=2`).then(r => {
       const list = (r && r.epg_listings) || [];
-      return list.map(e => ({
+      return list.map(e => withEpgOffset({
         title: b64(e.title), desc: b64(e.description),
         start: Number(e.start_timestamp) * 1000, end: Number(e.stop_timestamp || e.end_timestamp) * 1000,
         startStr: String(e.start || '')
       })).filter(e => e.title && e.start && e.end);
     }).catch(() => []);
-    epgCache[streamId] = { t: Date.now(), p };
+    epgCache[key] = { t: Date.now(), p };
     return p;
   }
 
@@ -286,7 +307,7 @@ const API = (() => {
     if (!c || c.type !== 'xtream' || !streamId) return Promise.resolve([]);
     return xtreamGet('get_simple_data_table', `&stream_id=${encodeURIComponent(streamId)}`).then(r => {
       const list = (r && r.epg_listings) || [];
-      return list.map(e => ({
+      return list.map(e => withEpgOffset({
         title: b64(e.title), desc: b64(e.description),
         start: Number(e.start_timestamp) * 1000, end: Number(e.stop_timestamp || e.end_timestamp) * 1000,
         startStr: String(e.start || ''),
@@ -300,7 +321,8 @@ const API = (() => {
   function timeshiftStamp(prog) {
     const m = String(prog.startStr || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
     if (m) return m[1] + '-' + m[2] + '-' + m[3] + ':' + m[4] + '-' + m[5];
-    const d = new Date(prog.start);
+    // startRaw is the provider clock; start may already include the viewer's time offset
+    const d = new Date(prog.startRaw != null ? prog.startRaw : prog.start);
     return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ':' + pad2(d.getHours()) + '-' + pad2(d.getMinutes());
   }
   // First link is tried first; the rest are tried one by one if it fails.
@@ -340,6 +362,14 @@ const API = (() => {
   function getVodInfoCached(id) {
     if (!vodInfoCache[id]) vodInfoCache[id] = getVodInfo(id).catch(() => null);
     return vodInfoCache[id];
+  }
+
+  // A new login must not keep the previous provider's search list, guide, or film details.
+  function clearSessionCaches() {
+    clearLists();
+    Object.keys(allCache).forEach(k => { delete allCache[k]; });
+    Object.keys(epgCache).forEach(k => { delete epgCache[k]; });
+    Object.keys(vodInfoCache).forEach(k => { delete vodInfoCache[k]; });
   }
 
   // ---------- recently watched movies and series ----------
@@ -437,7 +467,7 @@ const API = (() => {
   }
   function listProgress(kind) {
     const m = progressMap();
-    return Object.keys(m).map(k => normalizeProgress(m[k])).filter(e => !kind || e.kind === kind).sort((a, b) => b.ts - a.ts);
+    return Object.keys(m).map(k => normalizeProgress(m[k])).filter(e => !kind || e.kind === kind).sort((a, b) => (b.ts || 0) - (a.ts || 0));
   }
   // Same list, but every series is one row: the latest episode watched.
   function listProgressCollapsed(kind) {

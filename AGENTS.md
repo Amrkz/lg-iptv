@@ -71,6 +71,7 @@ bash ios-app/build-mac.sh sim | archive | device                                
 ## Testing
 - `node lg-iptv/service/guard.test.js` checks the helper token, CORS, and blocked targets.
 - `node lg-iptv/js/privacy.test.js` checks the PIN hash and that a backup omits passwords and the PIN.
+- `node lg-iptv/js/api.logic.test.js` checks that a new login drops the previous provider's lists, and that the guide time offset does not rewrite catch-up links.
 - Live and VOD still have to be played on the real TV after a helper change. Package `lg-iptv` together with `lg-iptv/service`.
 
 ## UI rules added in 1.0.6

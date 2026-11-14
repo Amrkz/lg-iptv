@@ -32,11 +32,22 @@ const UI = (() => {
     firstFocus(name);
   }
 
-  function setMessage(container, text) {
-    container.innerHTML = '';
+  // kind: 'empty' | 'loading' | 'error'. keep: add the note under what is already on screen.
+  function setMessage(container, text, kind, keep) {
+    if (!keep) container.innerHTML = '';
+    const k = kind || 'empty';
     const d = document.createElement('div');
-    d.className = 'empty';
-    d.textContent = text;
+    d.className = 'empty empty-' + k;
+    d.dir = 'auto';
+    d.setAttribute('role', k === 'error' ? 'alert' : 'status');
+    const mark = document.createElement('span');
+    mark.className = 'empty-mark';
+    mark.setAttribute('aria-hidden', 'true');
+    const p = document.createElement('p');
+    p.className = 'empty-text';
+    p.textContent = text;
+    d.appendChild(mark);
+    d.appendChild(p);
     container.appendChild(d);
   }
 
@@ -167,7 +178,7 @@ const UI = (() => {
       row.appendChild(itemsEl);
       container.appendChild(row);
     });
-    if (!count) setMessage(container, tr('Nothing here yet.'));
+    if (!count) setMessage(container, tr('Nothing here yet.'), 'empty');
     lazyImages(container);
   }
 

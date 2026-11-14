@@ -63,7 +63,8 @@ input { -webkit-user-select: text; user-select: text; }
 .btn { padding: 22px; border: none; border-radius: 10px; font-size: 32px; font-weight: 700; cursor: pointer; transition: transform 0.2s var(--ease); }
 .btn.primary { background: var(--accent); color: #fff; width: 100%; }
 .btn:focus { outline: none; box-shadow: var(--ring); transform: scale(1.025); }
-.err { color: var(--danger); margin-top: 18px; min-height: 36px; font-size: 24px; font-weight: 700; }
+.err { color: var(--danger); margin-top: 18px; min-height: 36px; font-size: 24px; font-weight: 700; line-height: 1.35; }
+.err:not(:empty) { padding: 14px 18px; border-radius: 10px; background: rgba(255, 122, 122, 0.12); }
 .login-help { position: absolute; left: var(--gutter); bottom: 48px; font-size: 22px; color: var(--text-3); }
 .no-content-notice { position: absolute; right: var(--gutter); bottom: 48px; max-width: 960px; text-align: right; font-size: 22px; line-height: 1.35; color: var(--text-3); }
 
@@ -132,7 +133,12 @@ nav .navbtn + .navbtn { margin-left: 8px; }
 .row-items { display: flex; margin: 0 calc(-1 * var(--gutter)); padding: 22px var(--gutter) 34px; overflow-x: auto; scroll-padding: 0 var(--gutter); }
 .row-items.grid { flex-wrap: wrap; overflow-x: visible; }
 .row-items.grid .card { margin-bottom: 26px; }
-.empty { color: var(--text-3); font-size: 30px; padding: 40px var(--gutter); background: var(--ink); min-height: 560px; }
+.empty { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; color: var(--text-2); font-size: 34px; font-weight: 700; line-height: 1.4; padding: 72px var(--gutter) 80px; background: var(--ink); min-height: 360px; }
+.empty-mark { display: block; width: 88px; height: 10px; margin-bottom: 22px; border-radius: 5px; background: #b4b4be; }
+.empty-loading .empty-mark { width: 148px; background: var(--accent); }
+.empty-error { color: #fff; }
+.empty-error .empty-mark { background: var(--danger); }
+.empty-text { max-width: 980px; margin: 0; }
 
 .card { flex: 0 0 288px; height: 162px; margin-right: 20px; background: var(--panel); border-radius: 10px; position: relative; overflow: hidden; cursor: pointer;
   transition: transform 0.18s var(--ease); } /* transform only: shadows and opacity repaint every frame on the TV */
@@ -412,6 +418,8 @@ nav .navbtn + .navbtn { margin-left: 8px; }
 
 /* Arabic joins its letters: no letter spacing and no capitals, anywhere */
 html[lang="ar"] *, html[lang="ar"] *::before, html[lang="ar"] *::after { letter-spacing: 0 !important; text-transform: none !important; }
+/* The wordmark is Latin. Keep KAYAN in capitals when the rest of the screen is Arabic. */
+html[lang="ar"] .login-brand h1, html[lang="ar"] .logo { text-transform: uppercase !important; }
 /* text in the left-to-right parts (rows, hero, player) follows its own script, so Arabic names line up on the right */
 html[lang="ar"] .card .title, html[lang="ar"] .row h3, html[lang="ar"] .hero h2, html[lang="ar"] .hero p, html[lang="ar"] .hero-meta,
 html[lang="ar"] .hero-kicker, html[lang="ar"] .ov-title, html[lang="ar"] .ov-sub, html[lang="ar"] .bn-line, html[lang="ar"] .pc-title,
@@ -423,7 +431,8 @@ html[lang="ar"] .card.noart .title { text-align: center; }
 html[dir="rtl"] #login-lang { right: auto; left: var(--gutter); }
 html[dir="rtl"] .login-brand { padding-right: 0; padding-left: 80px; }
 html[dir="rtl"] .tabs .tab + .tab { margin-left: 0; margin-right: 12px; }
-html[dir="rtl"] .form input { direction: ltr; text-align: left; }
+html[dir="rtl"] #x-server,
+html[dir="rtl"] #m-url { direction: ltr; text-align: left; }
 html[dir="rtl"] .login-help { left: auto; right: var(--gutter); }
 html[dir="rtl"] .no-content-notice { right: auto; left: var(--gutter); text-align: left; }
 html[dir="rtl"] nav { margin-left: 0; margin-right: 56px; }
@@ -505,16 +514,19 @@ html[lang="ar"] #home .topbar #lang,
 html[lang="ar"] #logout { font-size: 22px; padding: 10px 14px; }
 
 /* offline downloads */
-.card .dl-badge { position: absolute; top: 10px; right: 12px; padding: 4px 10px; border-radius: 8px; background: rgba(229, 9, 20, 0.92); color: #fff; font-size: 16px; font-weight: 700; letter-spacing: 0.04em; }
-.confirm-actions { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
+.card .dl-badge { position: absolute; top: 10px; right: 52px; padding: 4px 10px; border-radius: 8px; background: rgba(229, 9, 20, 0.92); color: #fff; font-size: 16px; font-weight: 700; letter-spacing: 0.04em; }
+.confirm-actions { display: flex; flex-direction: column; margin-top: 18px; }
+.confirm-actions .d-item + .d-item { margin-top: 12px; }
 .confirm-actions .d-item.primary { background: var(--accent); color: #fff; }
 #btn-dl.on { color: var(--accent); }
 
 .clock { font: 700 26px var(--ui); color: var(--text-2); letter-spacing: 0.06em; margin-inline-end: 18px; min-width: 5.5em; text-align: center; }
 .confirm-input { width: 100%; margin: 14px 0 8px; padding: 16px 18px; font-size: 28px; border-radius: 10px; border: 2px solid rgba(255,255,255,0.18); background: #111; color: #fff; }
+.confirm-input:focus { outline: none; border-color: #fff; box-shadow: 0 0 0 4px var(--accent); background: #000; }
 
 /* Recent: vertical tabs (Live TV / Movies / Series) */
-.rtabs { display: none; position: absolute; z-index: 3; left: 60px; top: 560px; flex-direction: column; gap: 14px; }
+.rtabs { display: none; position: absolute; z-index: 3; left: 60px; top: 560px; flex-direction: column; }
+.rtab + .rtab { margin-top: 14px; }
 .rtabs.on { display: flex; }
 html[dir="rtl"] .rtabs { left: auto; right: 60px; }
 .rtab { min-width: 220px; padding: 18px 26px; border-radius: 16px; border: 2px solid transparent; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); font-size: 26px; font-weight: 600; text-align: start; cursor: pointer; }
@@ -547,8 +559,8 @@ html[data-theme] .hero h2 { line-height: 1.32; }
 html[dir="rtl"] .row h3.head-link::after { content: '\2039'; }
 
 /* ---------- Search first: the leading pill in the menu ---------- */
-.navbtn.searchnav { display: inline-flex; align-items: center; gap: 10px; border: 2px solid rgba(255, 255, 255, 0.4); }
-.navbtn.searchnav .search-ico { width: 30px; height: 30px; fill: currentColor; flex: none; }
+.navbtn.searchnav { display: inline-flex; align-items: center; border: 2px solid rgba(255, 255, 255, 0.4); }
+.navbtn.searchnav .search-ico { width: 30px; height: 30px; margin-inline-end: 10px; fill: currentColor; flex: none; }
 .navbtn.searchnav:focus { border-color: #fff; }
 .search-form { margin: 0; padding: 0; }
 .search-input { -webkit-appearance: none; appearance: none; box-sizing: border-box; }
