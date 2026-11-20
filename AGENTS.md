@@ -59,7 +59,7 @@ cd ~/Developer/lg-iptv-github && git pull -q && bash ios-app/build-mac.sh       
 bash ios-app/build-mac.sh sim | archive | device                                   # one step
 ```
 - Signing is automatic. The team comes from `$KAYAN_TEAM` or the OU of the first "Apple Development" certificate in the keychain.
-- Output goes to `~/Desktop/KayanIPTV-ios/` (`KayanIPTV.xcarchive` → Xcode Organizer → Distribute App → TestFlight). Never upload to App Store Connect / TestFlight without Amr's explicit ask. (Build 1.0.6 (8) was uploaded on Nov 13, 2026 with his OK and is attached to the 1.0.6 App Store version.)
+- Output goes to `~/Desktop/KayanIPTV-ios/` (the .ipa in a per-version folder, e.g. `1.0.7-9/KayanIPTV-1.0.7-9.ipa`, because the iCloud-synced Desktop can turn old files "dataless" and overwriting them times out; `KayanIPTV.xcarchive` → Xcode Organizer → Distribute App → TestFlight). Never upload to App Store Connect / TestFlight without Amr's explicit ask. (Build 1.0.6 (8) was uploaded on Nov 13, 2026 with his OK and is attached to the 1.0.6 App Store version.)
 - Info.plist already has ATS arbitrary loads (IPTV is mostly http), background audio (PiP / AirPlay keep playing), local-network text, `ITSAppUsesNonExemptEncryption = false`.
 - Icon is `store/master-icon.svg` rendered to 1024 px (same art as the Android icon).
 - Raw MPEG-TS (`.ts`) does not play in iOS `<video>`; Xtream live already prefers `.m3u8` (`prefer-hls`). M3U playlists that only list `.ts` need an HLS link from the provider.
@@ -86,6 +86,7 @@ bash ios-app/build-mac.sh sim | archive | device                                
 - Controls hide 5 s after the last key while playing (was 8 s).
 - Back from an episode list / category grid lands on the card that was opened; Back to Movies focuses the first card (focus used to be lost on `<body>`).
 - Settings → About shows the real version (`Settings.VERSION`); bump it with each release.
+- Amr's Mac disk is nearly full (~0.5 GB free on Nov 20, 2026). The simulator build cache `~/Desktop/KayanIPTV-ios/dd-sim` (8 GB) was deleted with his OK; prefer `build-mac.sh archive` over `all`.
 - Mock harness: `node /workspace/mock/server.js` serves `srv/` on :8765 plus a fake Xtream panel (`/player_api.php`, user `u`, pass `p`, 1500 live / 800 movies / 400 series with Arabic names). `hunt3.js` walks Xtream+M3U × EN+AR × TV+phone; `grid.js`, `shot-search.js` check search.
 
 ## Known issues / open work

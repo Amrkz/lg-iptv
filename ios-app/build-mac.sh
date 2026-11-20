@@ -41,11 +41,18 @@ archive() {
     -archivePath "$OUT/KayanIPTV.xcarchive" -allowProvisioningUpdates \
     DEVELOPMENT_TEAM="$TEAM" CODE_SIGN_STYLE=Automatic archive | tail -5
   echo "Archive: $OUT/KayanIPTV.xcarchive"
-  cp ExportOptions.plist "$OUT/ExportOptions.plist"
-  cp STORE.md "$OUT/AppStore-listing.md"
+  # Each version gets its own folder. The Desktop is synced to iCloud: old files there can be
+  # "dataless" (moved to iCloud when the disk is full), and copying over one times out.
+  local plist="$OUT/KayanIPTV.xcarchive/Info.plist"
+  local ver; ver="$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleShortVersionString' "$plist")-$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleVersion' "$plist")"
+  local dest="$OUT/$ver"
+  mkdir -p "$dest"
+  cp ExportOptions.plist "$dest/ExportOptions.plist"
+  cp STORE.md "$dest/AppStore-listing.md"
   xcodebuild -exportArchive -archivePath "$OUT/KayanIPTV.xcarchive" \
-    -exportOptionsPlist ExportOptions.plist -exportPath "$OUT" -allowProvisioningUpdates | tail -5
-  echo "IPA exported (NOT uploaded): $OUT"
+    -exportOptionsPlist ExportOptions.plist -exportPath "$dest" -allowProvisioningUpdates | tail -5
+  [ -f "$dest/App.ipa" ] && mv -f "$dest/App.ipa" "$dest/KayanIPTV-$ver.ipa"
+  echo "IPA exported (NOT uploaded): $dest/KayanIPTV-$ver.ipa"
 }
 device() {
   [ -n "$TEAM" ] || { echo "No Apple team found."; return 1; }
