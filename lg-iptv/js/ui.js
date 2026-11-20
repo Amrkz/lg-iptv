@@ -302,6 +302,7 @@ const UI = (() => {
     form.appendChild(input);
     const p = document.createElement('p');
     p.textContent = tr('Type, then press OK or Enter to search. Press Down for results.');
+    p.dir = 'auto';
     box.appendChild(k);
     box.appendChild(form);
     box.appendChild(p);

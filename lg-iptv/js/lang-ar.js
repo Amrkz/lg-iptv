@@ -54,6 +54,10 @@ I18n.add('ar', {
   // search
   'Type at least two letters to search channels, movies and series.': 'اكتب حرفين على الأقل للبحث في القنوات والأفلام والمسلسلات.',
   'Searching…': 'جارٍ البحث…',
+  'Live': 'مباشر',
+  'No live channels match.': 'لا توجد قنوات مطابقة.',
+  'No movies match.': 'لا توجد أفلام مطابقة.',
+  'No series match.': 'لا توجد مسلسلات مطابقة.',
   'No results for "{q}".': 'لا توجد نتائج لـ "{q}".',
   'Search failed: {msg}': 'فشل البحث: {msg}',
   'Channels, movies, series': 'قنوات، أفلام، مسلسلات',

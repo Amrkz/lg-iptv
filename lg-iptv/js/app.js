@@ -534,7 +534,7 @@ const App = (() => {
 
   let heroTimer = null;
   const handlers = {
-    head(cat, kind) { if (Settings.catLocked && Settings.catLocked(cat.category_name)) { pick({ cat: cat, name: cat.category_name }, kind); return; } showCategory(kind === 'recent' ? currentKind : kind, cat); },
+    head(cat, kind) { if (cat._search) { showSearchGrid(cat._search); return; } if (Settings.catLocked && Settings.catLocked(cat.category_name)) { pick({ cat: cat, name: cat.category_name }, kind); return; } showCategory(kind === 'recent' ? currentKind : kind, cat); },
     // the hero follows the focused card (debounced, so scrolling a row stays smooth)
     focus: (item, kind) => {
       stopSlideshow();
@@ -652,6 +652,7 @@ const App = (() => {
 
   function showCategory(kind, cat) {
     const id = ++loadId;
+    openedName = cat.category_name || '';
     view = 'category';
     stopSlideshow();
     UI.clearHero(hero());
@@ -718,6 +719,7 @@ const App = (() => {
 
   function showEpisodes(series) {
     const id = ++loadId;
+    openedName = series.name || series.title || '';
     view = 'episodes';
     UI.setMessage(rows(), tr('Loading episodes…'));
     UI.setHero(hero(), series, 'series');
@@ -1289,6 +1291,8 @@ const App = (() => {
       focusAt(nrow, delta > 0 ? 0 : nlines.length - 1, here.ci);
       return true;
     }
+    const sIn = view === 'search' ? UI.$('#search-input') : null;
+    if (dir === 'UP' && sIn) { sIn.focus(); return true; } // above the first result is the search field
     if (dir === 'UP') focusNav();
     return true;
   }
@@ -1301,14 +1305,32 @@ const App = (() => {
     if (a && a.classList && a.classList.contains('card') && rowOf(a) && railRows().indexOf(rowOf(a)) >= 0) place(a);
   }
 
+  // the card (or the category chip) that was opened before Back, else the first card of the screen
+  let openedName = '';
+  function refocusCard(name) {
+    if (!homeVisible() || UI.$('#player:not(.hidden)')) return;
+    const a = document.activeElement;
+    if (a && a !== document.body && a.offsetParent !== null) return; // the viewer already moved
+    const cards = Array.from(rows().querySelectorAll('.card'));
+    const hit = name ? cards.filter(c => { const t = c.querySelector('.title span'); return t && t.textContent === name; })[0] : null;
+    const target = hit || cards.filter(c => !c.classList.contains('chip'))[0] || cards[0];
+    if (target) place(target);
+  }
+
   // Back on the home screen: step out of sub-views first, exit the app from Live TV.
   function onBack() {
     if (!homeVisible()) return false;
     if (themeOpen) { closeThemePicker(false); return true; }
     if (confirmOpen) { closeConfirm(); return true; }
     if (pickerOpen) { closePicker(); return true; }
-    if (view === 'episodes' || view === 'category') { openSection(currentKind, false); return true; } // back to the section it came from
-    if (currentKind !== 'movies') { loadCategory('movies'); return true; } // Movies is home
+    if ((view === 'episodes' || view === 'category') && currentKind === 'search') { showSearch(); return true; } // back to the results
+    if (view === 'episodes' || view === 'category') { // back to the section it came from, on the card that was opened
+      const from = openedName;
+      const p = openSection(currentKind, false);
+      if (p && p.then) p.then(() => refocusCard(from));
+      return true;
+    }
+    if (currentKind !== 'movies') { loadCategory('movies').then(() => refocusCard('')); return true; } // Movies is home
     return false;
   }
 
@@ -1333,7 +1355,7 @@ const App = (() => {
       runSearch(input.value, true);
       if (document.documentElement.classList.contains('touch') && input.blur) input.blur(); // put the phone keyboard away
     };
-    input.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { lastRun = input.value.trim(); runSearch(input.value, false); }, 350); });
+    input.addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { lastRun = input.value.trim(); runSearch(input.value, false); }, 300); });
     input.addEventListener('keydown', (e) => {
       const enter = e.keyCode === KEYS.ENTER || e.key === 'Enter' || e.key === 'Go' || e.key === 'Search';
       if (!enter || e.isComposing) return;
@@ -1350,26 +1372,97 @@ const App = (() => {
   }
 
   let lastQuery = '';
+  try { lastQuery = API.pref('searchQ') || ''; } catch (e) {} // the last words survive a restart
+  const SEARCH_KINDS = [['live', 'Live'], ['movies', 'Movies'], ['series', 'Series']];
+  const SEARCH_EMPTY = { live: 'No live channels match.', movies: 'No movies match.', series: 'No series match.' };
+
+  // One query searches all three at once. Each kind gets its own section that fills in when its
+  // list arrives (Live is usually first), so a slow series list never holds up the channels.
   function runSearch(q, focusFirst) {
     q = (q || '').trim();
     lastQuery = q;
-    if (q.length < 2) { UI.setMessage(rows(), SEARCH_HINT); return; }
+    try { API.pref('searchQ', q); } catch (e) {}
     const seq = ++searchSeq;
-    UI.setMessage(rows(), tr('Searching…'));
-    API.search(q).then(res => {
-      if (seq !== searchSeq || view !== 'search') return;
-      const cats = [], map = {};
-      [['live', tr('Live TV')], ['movies', tr('Movies')], ['series', tr('Series')]].forEach(pair => {
-        let list = res[pair[0]] || [];
-        if (pair[0] !== 'live') list = groupQualities(list);
-        if (list.length) { cats.push({ category_id: 's_' + pair[0], category_name: pair[1], kind: pair[0], limit: 40 }); map['s_' + pair[0]] = list; }
-      });
-      if (!cats.length) { UI.setMessage(rows(), tr('No results for "{q}".', { q })); return; }
-      render(cats, map, 'search'); // render() also refreshes the favorite keys that isFav reads
-      if (focusFirst) { const l = railRows(); if (l.length) focusAt(l[0], 0, 0); }
-    }).catch(e => {
-      if (seq === searchSeq) UI.setMessage(rows(), tr('Search failed: {msg}', { msg: e && e.message ? e.message : e }));
+    if (q.length < 2) { UI.setMessage(rows(), SEARCH_HINT); return; }
+    const box = rows();
+    box.innerHTML = '';
+    box.scrollTop = 0;
+    progMap = API.progressMap();
+    favKeys = {};
+    API.getFavs().forEach(f => { favKeys[f.key] = true; });
+    let pending = SEARCH_KINDS.length, found = 0, wantFocus = !!focusFirst;
+    const secs = {};
+    SEARCH_KINDS.forEach(pair => {
+      const sec = document.createElement('div');
+      sec.className = 'search-sec';
+      sec.dataset.kind = pair[0];
+      const st = document.createElement('div');
+      st.className = 'search-status';
+      const lab = document.createElement('b');
+      lab.textContent = tr(pair[1]);
+      const msg = document.createElement('span');
+      msg.textContent = tr('Searching…');
+      msg.dir = 'auto';
+      st.appendChild(lab);
+      st.appendChild(msg);
+      sec.appendChild(st);
+      box.appendChild(sec);
+      secs[pair[0]] = { sec: sec, st: st, msg: msg };
     });
+    const done = () => {
+      if (--pending > 0) return;
+      if (!found) UI.setMessage(rows(), tr('No results for "{q}".', { q }));
+    };
+    SEARCH_KINDS.forEach(pair => {
+      const kind = pair[0], s = secs[kind];
+      API.searchKind(kind, q, 300).then(res => {
+        if (seq !== searchSeq || view !== 'search') return;
+        let list = res.items;
+        if (kind !== 'live') list = groupQualities(list);
+        if (!list.length) { s.msg.textContent = tr(SEARCH_EMPTY[kind]); s.st.classList.add('none'); done(); return; }
+        found++;
+        list.total = kind === 'live' ? res.total : list.length;
+        lastResults[kind] = list;
+        const tmp = document.createElement('div');
+        const map = {};
+        map['s_' + kind] = list;
+        UI.renderRows(tmp, [{ category_id: 's_' + kind, category_name: tr(pair[1]), kind: kind, limit: 40, _search: kind }], map, kind, handlers);
+        const row = tmp.querySelector('.row');
+        s.sec.innerHTML = '';
+        if (row) s.sec.appendChild(row);
+        UI.lazyImages(rows());
+        // Enter was pressed: the cursor goes to the first result of the first section that has one,
+        // unless the viewer already moved into the results
+        const a = document.activeElement;
+        const inResults = a && a.classList && a.classList.contains('card') && rows().contains(a);
+        if (wantFocus && !inResults) {
+          const first = railRows()[0];
+          if (first) { focusAt(first, 0, 0); wantFocus = false; }
+        } else if (wantFocus && inResults) wantFocus = false;
+        done();
+      }).catch(e => {
+        if (seq !== searchSeq || view !== 'search') return;
+        s.msg.textContent = tr('Search failed: {msg}', { msg: e && e.message ? e.message : e });
+        s.st.classList.add('none');
+        found++; // keep the error on screen instead of "no results"
+        done();
+      });
+    });
+  }
+
+  // every match of one kind, as a grid (the section title opens it)
+  const lastResults = {};
+  function showSearchGrid(kind) {
+    const list = lastResults[kind];
+    if (!list || !list.length) return;
+    loadId++;
+    view = 'category';
+    const label = SEARCH_KINDS.filter(p => p[0] === kind)[0][1];
+    const map = {};
+    map['s_' + kind] = list;
+    render([{ category_id: 's_' + kind, category_name: tr(label) + ' · ' + lastQuery + ' (' + (list.total || list.length) + ')', kind: kind, limit: 300, grid: true }], map, kind);
+    const firstCard = UI.$('#rows .card');
+    if (firstCard) firstCard.focus();
   }
 
   // ---------- landing page ----------

@@ -1,6 +1,6 @@
 {
   "name": "kayan-iptv-ios",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Kayan IPTV for iPhone and iPad (Capacitor)",
   "private": true,
   "scripts": {

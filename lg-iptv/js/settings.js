@@ -1,7 +1,7 @@
 // Settings / Control Center for Kayan IPTV.
 // Only real controls: each row maps to a preference the app already honours.
 const Settings = (() => {
-  const VERSION = '1.0.0';
+  const VERSION = '1.0.7';
   const DEF = {
     liveBuffer: 60,
     vodBuffer: 30,

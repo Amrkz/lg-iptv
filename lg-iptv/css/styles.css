@@ -570,3 +570,15 @@ html:not([lang="ar"]) #theme-btn { padding-left: 14px; padding-right: 14px; min-
 .touchback.hidden { display: none; }
 .touchback svg { width: 36px; height: 36px; fill: currentColor; }
 html[dir="rtl"] .touchback svg { transform: scaleX(-1); }
+
+/* global search: one section per kind (Live / Movies / Series), each fills in on its own */
+.search-sec { pointer-events: auto; background: var(--ink); }
+.search-status { display: flex; align-items: baseline; gap: 18px; padding: 14px var(--gutter) 18px; color: var(--text-3); font: 700 26px var(--ui); }
+.search-status b { font: 900 40px/1.2 var(--display); text-transform: uppercase; letter-spacing: 0.02em; color: var(--text-2, #cfcfd6); }
+.search-status.none b { color: var(--text-3); }
+
+/* Android app: the native picture is drawn under the page, so the page is see-through while it plays.
+   Only the player's own controls, cards and drawers are painted on top. */
+html.nv-under, html.nv-under body, html.nv-under #app, html.nv-under #player { background: transparent !important; }
+html.nv-under #video { visibility: hidden; }
+html.nv-under #home, html.nv-under #login, html.nv-under .grain { display: none !important; }

@@ -7,7 +7,7 @@ Kayan IPTV is an IPTV *viewer* (no content of its own). The user signs in with X
 One web app (`lg-iptv/`) is shipped to several platforms:
 - **LG webOS TV**: app id `com.amrkz.kayaniptv`, helper `com.amrkz.kayaniptv.proxy` (the main target, a 2021 LG TV). No hyphen in either name. The id locks after the first Content Store submission.
 - **Android / Android TV**: Capacitor app, package `com.amrkz.kayaniptv` (Play Console, account amokazes@gmail.com).
-- **iPhone / iPad**: Capacitor 7 app in `ios-app/` (Swift Package Manager, no CocoaPods), bundle id `com.amrkz.kayaniptv`, version 1.0.6 (build 8). **Landscape-only since build 8** (iPhone and iPad; the TV layout only filled a thin strip in portrait). App Store Connect record exists: Apple ID `6834382655`, SKU `kayaniptv-ios` (listing details and status in `ios-app/STORE.md`).
+- **iPhone / iPad**: Capacitor 7 app in `ios-app/` (Swift Package Manager, no CocoaPods), bundle id `com.amrkz.kayaniptv`, version 1.0.7 (build 9; 1.0.6 (8) is the build in App Review). **Landscape-only since build 8** (iPhone and iPad; the TV layout only filled a thin strip in portrait). App Store Connect record exists: Apple ID `6834382655`, SKU `kayaniptv-ios` (listing details and status in `ios-app/STORE.md`).
 - **Samsung Tizen**: `tizen-app/` (not packaged yet; needs Tizen Studio and a Samsung certificate).
 
 ## Layout
@@ -16,7 +16,7 @@ One web app (`lg-iptv/`) is shipped to several platforms:
   - `keys.js`: remote key codes (BACK is 461 on webOS).
   - `api.js`: Xtream/M3U loading and caching (`clearLists()` must also reset `m3uItems`).
   - `ui.js`: rows, grids and focus.
-  - `player.js`: hls.js and native playback, plus the control bar.
+  - `player.js`: hls.js and native playback, plus the control bar. `video` there is a stand-in for the `<video>` tag (`vEl` is the real tag) so the Android native picture can sit under the page (see 1.0.7 below).
   - `settings.js`, `downloads.js`.
   - `app.js`: boot, auto-login, the Recent hero and tab rotation.
   - `i18n.js` and `lang-ar.js`: Arabic strings (no duplicate keys; RTL supported).
@@ -80,10 +80,18 @@ bash ios-app/build-mac.sh sim | archive | device                                
 - **Android native player** (`NativePlayerActivity`): Media3 `PlayerView` controller is on (seek bar, ±10 s), shows on any remote key and on tap, hides after 4 s while playing, stays while paused.
 - **Touch devices** (`html.touch`): an on-screen Back arrow appears in the top bar whenever there is a level to go back to (`App.canGoBack()`); the colour-button hints are hidden. iOS never shows the Exit dialog.
 
+## Added in 1.0.7
+- **Global search** (`runSearch` in `app.js`, `API.searchKind` in `api.js`): one query searches Live, Movies and Series at once, for Xtream (whole `get_live_streams` / `get_vod_streams` / `get_series` lists, loaded once per login and kept in memory only, never localStorage) and M3U. Three sections (Live/مباشر, Movies/أفلام, Series/مسلسلات) each show "Searching…" and fill in on their own with a count. Matching: `API.norm` folds case, Arabic diacritics/tatweel, أإآٱ→ا, ى→ي, ة→ه and punctuation; every word must match (AND); ranked name-starts-with, then word-start, then inside a word, then shorter names. Typing searches after 300 ms, Enter at once and moves to the first result. Up from the first result row goes back to the field. A section title (click) opens all its matches as a grid; Back returns to the results. PIN-locked categories are left out. The last query is kept (`pref_searchQ`), also after a restart. `clearLists()` also clears the search lists.
+- **Android player = native picture under the page.** `NativePlayer.open/control` (`UnderlayPlayer.java`) puts a Media3 `PlayerView` (no controller) behind the WebView and makes the WebView transparent; the page gets `html.nv-under` (see-through backgrounds, `#video` hidden). The web player keeps the keys and all of its controls: seek bar, play/pause, ±10 s, previous/next episode, episode list, audio/subtitle tracks (`nvtracks` → `video.audioTracks`/`textTracks` stand-ins), picture size (`fit`), speed, sleep, favourite, download. Native news arrives as `nvstate`/`nverror`/`nvtracks` events and is re-fired as normal media events on the real `<video>` tag. Decoder errors before the first frame fall back to the page player. The old full-screen `NativePlayerActivity` is only used by an app shell without `open`. Test without a device: `/workspace/mock/nvtest.js` (fake plugin in Chrome).
+- Controls hide 5 s after the last key while playing (was 8 s).
+- Back from an episode list / category grid lands on the card that was opened; Back to Movies focuses the first card (focus used to be lost on `<body>`).
+- Settings → About shows the real version (`Settings.VERSION`); bump it with each release.
+- Mock harness: `node /workspace/mock/server.js` serves `srv/` on :8765 plus a fake Xtream panel (`/player_api.php`, user `u`, pass `p`, 1500 live / 800 movies / 400 series with Arabic names). `hunt3.js` walks Xtream+M3U × EN+AR × TV+phone; `grid.js`, `shot-search.js` check search.
+
 ## Known issues / open work
 - **Old webOS install:** `com.amrkz.lumioplayer` has been removed from Amr's TV (Nov 13, 2026). On any other TV remove it by hand; storage does not move to `com.amrkz.kayaniptv`. Do not rename the new id after the first Seller Lounge submission.
 - **App Store review:** iOS 1.0.6 (8) was submitted on Nov 13, 2026 and is **Waiting for Review** (auto-release after approval). Check App Store Connect → Kayan IPTV → App Review for the result; if rejected, fix and resubmit from the version page.
-- **Android on old WebViews** (for example a ClassPro TV): streams never started in the WebView ("slow internet"). Since 1.0.5 (code 6) the Android app hands every stream to a native Media3 ExoPlayer screen (`NativePlayerPlugin` + `NativePlayerActivity`, called from `startExo()` in `player.js`; it falls back to the page player only for a decoder/format failure). webOS and Tizen never see the plugin. Not yet confirmed on a real ClassPro box.
+- **Android on old WebViews** (for example a ClassPro TV): streams never started in the WebView ("slow internet"). Since 1.0.5 (code 6) the Android app plays every stream with native Media3 ExoPlayer; since 1.0.7 (code 8) that picture is under the page so all web controls show (`startExo()` in `player.js`; it falls back to the page player only for a decoder/format failure). webOS and Tizen never see the plugin. Not yet confirmed on a real ClassPro box.
 - **Play closed test:** blocked on reviewer sign-in details. The plan is to give reviewers the free playlist https://iptv-org.github.io/iptv/index.m3u.
 - **Ads:** none yet. Advertising ID is declared as "No"; change that declaration before adding ads.
 

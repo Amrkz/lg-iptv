@@ -2,6 +2,7 @@
 const API = (() => {
   let cfg = null;
   let m3uItems = null;
+  let m3uLoading = null;
 
   const store = (k, v) => { try { localStorage.setItem('iptv_' + k, JSON.stringify(v)); } catch (e) { /* quota/private mode */ } };
   const load = (k) => { try { return JSON.parse(localStorage.getItem('iptv_' + k)); } catch (e) { return null; } };
@@ -102,7 +103,9 @@ const API = (() => {
   function ensureLoaded() {
     const c = getConfig();
     if (c && c.type === 'm3u' && !m3uItems) {
-      return fetchText(c.url).then(text => { m3uItems = parseM3U(text); });
+      // one download even when several screens ask at once (search asks for three kinds together)
+      if (!m3uLoading) m3uLoading = fetchText(c.url).then(text => { m3uItems = parseM3U(text); m3uLoading = null; }, e => { m3uLoading = null; throw e; });
+      return m3uLoading;
     }
     return Promise.resolve();
   }
@@ -161,7 +164,7 @@ const API = (() => {
     listCache[key] = { t: Date.now(), p };
     return p;
   }
-  function clearLists() { Object.keys(listCache).forEach(k => { delete listCache[k]; }); m3uItems = null; } // M3U is fetched again too
+  function clearLists() { Object.keys(listCache).forEach(k => { delete listCache[k]; }); Object.keys(allCache).forEach(k => { delete allCache[k]; }); m3uItems = null; } // M3U is fetched again too
 
   function getCategories(kind) {
     const c = getConfig();
@@ -223,39 +226,80 @@ const API = (() => {
   function getVodInfo(id) { return xtreamGet('get_vod_info', `&vod_id=${encodeURIComponent(id)}`); }
 
   // ---------- whole-catalog lists (for search) ----------
-  // Fetched once per kind on first search, then kept in memory.
+  // Fetched once per kind on first search (or reused from the "all" shelf), then kept in memory only:
+  // a big panel's lists are megabytes, too much for localStorage.
   const allCache = {};
   function getAll(kind) {
     const c = getConfig();
     if (!c) return Promise.resolve([]);
-    if (c.type === 'm3u') return Promise.resolve(m3uOf(kind));
+    if (c.type === 'm3u') return ensureLoaded().then(() => m3uOf(kind));
     if (allCache[kind]) return allCache[kind];
+    const hit = listCache['s:' + kind + ':all'];
     const action = kind === 'live' ? 'get_live_streams' : kind === 'movies' ? 'get_vod_streams' : 'get_series';
-    allCache[kind] = xtreamGet(action).then(l => (Array.isArray(l) ? l : [])).catch(e => { delete allCache[kind]; throw e; });
+    allCache[kind] = (hit ? hit.p : xtreamGet(action)).then(l => (Array.isArray(l) ? l : [])).catch(e => { delete allCache[kind]; throw e; });
     return allCache[kind];
   }
 
-  // fold case, Arabic letter variants and diacritics, so "اخبار" also finds "أخبار"
+  // Fold case, Arabic letter variants, diacritics and tatweel, so "اخبار" also finds "أخبارُ".
+  // Punctuation becomes a space so "S01-E02" and "news|hd" split into words.
   function norm(str) {
     return String(str || '').toLowerCase()
-      .replace(/[ً-ْـ]/g, '')
-      .replace(/[أإآ]/g, 'ا')
-      .replace(/ة/g, 'ه')
-      .replace(/ى/g, 'ي')
+      .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g, '')
+      .replace(/[\u0623\u0625\u0622\u0671]/g, '\u0627')
+      .replace(/\u0629/g, '\u0647')
+      .replace(/\u0649/g, '\u064A')
+      .replace(/[\u060C\u061B\u061F.,;:!?|\/\\()\[\]{}<>"'`~@#$%^&*+=_\-\u2013\u2014]+/g, ' ')
       .replace(/\s+/g, ' ').trim();
   }
 
-  function search(q) {
-    const n = norm(q);
-    const kinds = ['live', 'movies', 'series'];
-    return Promise.all(kinds.map(k => getAll(k).catch(() => []))).then(lists => {
+  // 0 = the name starts with the query, 1 = every word matches a whole word or a word start,
+  // 2 = the words are only found inside other words. Lower ranks first, then shorter names.
+  function rank(n, q, words) {
+    if (n.indexOf(q) === 0) return 0;
+    const padded = ' ' + n;
+    for (let i = 0; i < words.length; i++) if (padded.indexOf(' ' + words[i]) < 0) return 2;
+    return 1;
+  }
+
+  // Lock names of a kind's categories, so a PIN-locked category never leaks into search.
+  function lockedCats(kind) {
+    const c = getConfig();
+    if (!c || !window.Settings || !Settings.catLocked) return Promise.resolve(null);
+    return getCategories(kind).then(cats => {
       const out = {};
-      kinds.forEach((k, i) => {
-        out[k] = lists[i].filter(it => {
-          if (it._n === undefined) it._n = norm(it.name || it.title); // normalise once per item
-          return it._n.indexOf(n) >= 0;
-        }).slice(0, 60);
-      });
+      cats.forEach(x => { if (Settings.catLocked(x.category_name)) out[String(x.category_id)] = true; });
+      return out;
+    }).catch(() => null);
+  }
+
+  // One kind: { items (best first, up to `max`), total }. Every word of the query must match (AND).
+  function searchKind(kind, q, max) {
+    const n = norm(q);
+    const words = n.split(' ').filter(Boolean);
+    if (!words.length) return Promise.resolve({ items: [], total: 0 });
+    return Promise.all([getAll(kind), lockedCats(kind)]).then(r => {
+      const list = r[0], locked = r[1];
+      const hits = [];
+      for (let i = 0; i < list.length; i++) {
+        const it = list[i];
+        if (it._n === undefined) it._n = norm(it.name || it.title); // normalise once per item
+        const s = it._n;
+        let ok = true;
+        for (let w = 0; w < words.length; w++) if (s.indexOf(words[w]) < 0) { ok = false; break; }
+        if (!ok) continue;
+        if (locked && locked[String(it.category_id != null ? it.category_id : it.group)]) continue;
+        hits.push({ it: it, r: rank(s, n, words) });
+      }
+      hits.sort((a, b) => a.r - b.r || a.it._n.length - b.it._n.length);
+      return { items: hits.slice(0, max || 300).map(h => h.it), total: hits.length };
+    });
+  }
+
+  function search(q) {
+    const kinds = ['live', 'movies', 'series'];
+    return Promise.all(kinds.map(k => searchKind(k, q, 60).catch(() => ({ items: [], total: 0 })))).then(lists => {
+      const out = {};
+      kinds.forEach((k, i) => { out[k] = lists[i].items; });
       return out;
     });
   }
@@ -624,6 +668,6 @@ const API = (() => {
   }
   ensureProxy();
 
-  return { getWatched, addWatched, imgUrl, clearLists, norm, getAll, search, getShortEpg, getArchiveGuide, catchupUrls, hasArchive, pref, getIntro, setIntro, getVodInfoCached, getRecent, addRecent, progressMap, getProgress, saveProgress, removeProgress, listProgress, listProgressCollapsed, parseServer, getLast, liveAltUrl, xtreamLogin, m3uLogin, ensureLoaded, getConfig, clearConfig, getCategories, getStreams, streamUrl, getSeriesInfo, getVodInfo, getFavs, toggleFav, isFav, proxyUrl, get proxyPort() { return proxyPort; }, get proxyToken() { return proxyToken; }, get proxyError() { return proxyError; } };
+  return { getWatched, addWatched, imgUrl, clearLists, norm, getAll, search, searchKind, getShortEpg, getArchiveGuide, catchupUrls, hasArchive, pref, getIntro, setIntro, getVodInfoCached, getRecent, addRecent, progressMap, getProgress, saveProgress, removeProgress, listProgress, listProgressCollapsed, parseServer, getLast, liveAltUrl, xtreamLogin, m3uLogin, ensureLoaded, getConfig, clearConfig, getCategories, getStreams, streamUrl, getSeriesInfo, getVodInfo, getFavs, toggleFav, isFav, proxyUrl, get proxyPort() { return proxyPort; }, get proxyToken() { return proxyToken; }, get proxyError() { return proxyError; } };
 })();
 window.API = API;

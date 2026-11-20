@@ -11,7 +11,60 @@
 // }
 const Player = (() => {
   const $ = (id) => document.getElementById(id);
-  const video = $('video');
+  const vEl = $('video');
+  // ---------- Android: the native picture lives UNDER the see-through page ----------
+  // In the Android app ExoPlayer draws the video behind the WebView, and this page keeps every control
+  // (episodes, next/previous, download, tracks, seek bar...). `video` is a stand-in for the <video> tag:
+  // while the native player is on (NV.on) it reads the native state and sends commands to it; the
+  // native player's news arrives as ordinary media events fired on the real tag, so every listener works.
+  const NV = { on: false, t: 0, d: NaN, buf: 0, paused: true, ended: false, rate: 1, w: 0, h: 0, ready: false, audio: [], text: [], started: false };
+  function nvPlugin() {
+    try {
+      const C = window.Capacitor;
+      if (!C || !C.isNativePlatform || !C.isNativePlatform() || !C.getPlatform || C.getPlatform() !== 'android') return null;
+      const P = C.Plugins && C.Plugins.NativePlayer;
+      return P && P.open && P.control ? P : null;
+    } catch (e) { return null; }
+  }
+  function nvCall(op, value) {
+    const P = nvPlugin();
+    if (!P) return Promise.resolve();
+    return P.control({ op: op, value: value === undefined ? 0 : +value || 0 }).catch(() => {});
+  }
+  function nvFire(name) { try { vEl.dispatchEvent(new Event(name)); } catch (e) { const ev = document.createEvent('Event'); ev.initEvent(name, false, false); vEl.dispatchEvent(ev); } }
+  const video = (function () {
+    const o = {};
+    ['addEventListener', 'removeEventListener', 'dispatchEvent', 'appendChild', 'removeChild', 'querySelector', 'getAttribute', 'setAttribute', 'removeAttribute', 'getBoundingClientRect', 'canPlayType'].forEach(n => {
+      o[n] = function () { return vEl[n].apply(vEl, arguments); };
+    });
+    o.play = function () {
+      if (NV.on) { NV.paused = false; nvFire('play'); nvCall('play'); return Promise.resolve(); }
+      return vEl.play();
+    };
+    o.pause = function () {
+      if (NV.on) { if (!NV.paused) { NV.paused = true; nvFire('pause'); } nvCall('pause'); return; }
+      vEl.pause();
+    };
+    o.load = function () { if (!NV.on) vEl.load(); };
+    const def = (name, get, set) => Object.defineProperty(o, name, { get: get, set: set || function (v) { vEl[name] = v; }, enumerable: true });
+    const pass = (name) => def(name, () => vEl[name]);
+    ['autoplay', 'src', 'firstChild', 'style', 'muted', 'volume', 'error', 'classList', 'id', 'parentNode', 'offsetParent', 'networkState', 'preload', 'poster'].forEach(pass);
+    def('currentTime', () => (NV.on ? NV.t : vEl.currentTime), v => {
+      if (NV.on) { NV.t = +v || 0; NV.ended = false; nvCall('seek', NV.t); nvFire('seeking'); return; }
+      vEl.currentTime = v;
+    });
+    def('duration', () => (NV.on ? NV.d : vEl.duration), () => {});
+    def('paused', () => (NV.on ? NV.paused : vEl.paused), () => {});
+    def('ended', () => (NV.on ? NV.ended : vEl.ended), () => {});
+    def('readyState', () => (NV.on ? (NV.ready ? 4 : NV.started ? 2 : 0) : vEl.readyState), () => {});
+    def('videoWidth', () => (NV.on ? NV.w : vEl.videoWidth), () => {});
+    def('videoHeight', () => (NV.on ? NV.h : vEl.videoHeight), () => {});
+    def('playbackRate', () => (NV.on ? NV.rate : vEl.playbackRate), v => { if (NV.on) { NV.rate = +v || 1; nvCall('rate', NV.rate); return; } vEl.playbackRate = v; });
+    def('buffered', () => (NV.on ? { length: NV.buf > 0 ? 1 : 0, start: () => 0, end: () => NV.buf } : vEl.buffered), () => {});
+    def('audioTracks', () => (NV.on ? NV.audio : vEl.audioTracks), () => {});
+    def('textTracks', () => (NV.on ? NV.text : vEl.textTracks), () => {});
+    return o;
+  })();
   const playerEl = $('player');
   const overlayEl = $('overlay');
   const miniEl = $('mini');
@@ -57,7 +110,7 @@ const Player = (() => {
   const PATH_PLAY = 'M8 5v14l11-7z';
   const PATH_PAUSE = 'M6 5h4v14H6zm8 0h4v14h-4z';
   const SCRUB_STEPS = [10, 10, 10, 20, 30, 60, 60, 120, 180, 300]; // grows while a key is held
-  const HIDE_AFTER = 8000;
+  const HIDE_AFTER = 5000;         // the controls hide this long after the last key while playing
   const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
   const BUSY_RETRY_MS = 8000, BUSY_RETRY_MAX = 3, NOT_READY_MAX = 5;
   const STALL_MS = 15000;          // a started stream that does not move this long is reopened
@@ -279,6 +332,7 @@ const Player = (() => {
   // ---------- picture size ----------
   // Only the video box changes. A transform over the picture would drop the TV's video plane.
   function applyPicture() {
+    if (NV.on) nvCall('fit', NV_FIT[pictureId] || 0);
     const s = video.style;
     s.top = '0'; s.left = '0'; s.width = '100%'; s.height = '100%'; s.objectFit = 'contain';
     if (pictureId === 'fill') s.objectFit = 'cover';
@@ -622,6 +676,7 @@ const Player = (() => {
   }
 
   function releaseVideo() {
+    if (NV.on) nvStop(); // the native picture under the page too
     if (!video.paused) ignorePauseUntil = Date.now() + 250; // the pause below is not the viewer's
     video.pause();
     video.autoplay = false;
@@ -780,6 +835,96 @@ const Player = (() => {
   }
   function useExo() { return !exoOff && !!exoPlugin(); }
 
+  // ---------- native picture under the page (Android app) ----------
+  let nvBound = false, nvMeta = false, nvWasPlaying = false, nvWasBuf = false;
+  function nvBind(P) {
+    if (nvBound || !P.addListener) return;
+    nvBound = true;
+    P.addListener('nvstate', nvState);
+    P.addListener('nverror', nvError);
+    P.addListener('nvtracks', nvTracks);
+  }
+  function nvReset() {
+    NV.t = 0; NV.d = NaN; NV.buf = 0; NV.paused = false; NV.ended = false; NV.rate = 1; NV.w = 0; NV.h = 0;
+    NV.ready = false; NV.started = false; NV.audio = []; NV.text = [];
+    nvMeta = false; nvWasPlaying = false; nvWasBuf = false;
+  }
+  function nvStop() {
+    if (!NV.on) return;
+    NV.on = false;
+    document.documentElement.classList.remove('nv-under');
+    nvReset();
+    const P = nvPlugin();
+    if (P) P.control({ op: 'stop', value: 0 }).catch(() => {});
+  }
+  function nvState(st) {
+    if (!NV.on || !st) return;
+    const wasPaused = NV.paused, prevD = NV.d;
+    NV.t = +st.t || 0;
+    NV.d = st.d >= 0 ? +st.d : (isLive() ? Infinity : NaN);
+    NV.buf = +st.buf || 0;
+    NV.rate = +st.rate || 1;
+    NV.w = st.w | 0; NV.h = st.h | 0;
+    NV.paused = !!st.paused;
+    NV.ready = !!st.ready;
+    NV.started = !!st.started;
+    if (NV.ready && !nvMeta) { nvMeta = true; nvFire('loadedmetadata'); nvFire('durationchange'); nvFire('canplay'); }
+    else if (NV.d !== prevD && !(isNaN(NV.d) && isNaN(prevD))) nvFire('durationchange');
+    if (wasPaused !== NV.paused) nvFire(NV.paused ? 'pause' : 'play');
+    if (st.playing && !nvWasPlaying) nvFire('playing');
+    nvWasPlaying = !!st.playing;
+    if (st.buffering && !nvWasBuf) nvFire('waiting');
+    nvWasBuf = !!st.buffering;
+    nvFire('timeupdate');
+    if (st.ended && !NV.ended) {
+      NV.ended = true;
+      if (isLive()) restart(0); // a live channel that "ended" is reopened at the live point
+      else nvFire('ended');
+    }
+  }
+  function nvTracks(t) {
+    if (!NV.on || !t) return;
+    NV.audio = (t.audio || []).map(a => {
+      const o = { label: a.label || '', language: a.lang || '' };
+      let on = !!a.on;
+      Object.defineProperty(o, 'enabled', { get: () => on, set: v => { on = !!v; if (v) nvCall('audio', a.i); }, enumerable: true });
+      return o;
+    });
+    let textCheck = null;
+    NV.text = (t.text || []).map(x => {
+      const o = { kind: 'subtitles', label: x.label || '', language: x.lang || '' };
+      let mode = x.on ? 'showing' : 'disabled';
+      Object.defineProperty(o, 'mode', {
+        get: () => mode,
+        set: v => {
+          mode = v;
+          if (v === 'showing') { nvCall('text', x.i); return; }
+          clearTimeout(textCheck); // "Off" disables every track: switch the native subtitles off once
+          textCheck = setTimeout(() => { if (NV.text.every(k => k.mode !== 'showing')) nvCall('text', -1); }, 0);
+        },
+        enumerable: true
+      });
+      return o;
+    });
+    applyLangPrefs();
+  }
+  function nvError(e) {
+    if (!NV.on || !ctx || !e) return;
+    httpStatus = e.httpStatus | 0;
+    if (!e.started && !httpStatus && !alts.length && !e.network) {
+      // a format this box's decoder refused: try the page player once
+      nvStop();
+      exoOff = true;
+      triedJs = false; triedNative = false; engine = '';
+      alts = altsOf(info);
+      start(info.url);
+      return;
+    }
+    if ((e.started || isLive()) && (e.network || httpStatus >= 500)) { reconnect(); return; }
+    fail();
+  }
+  const NV_FIT = { fill: 1, zoom: 1, stretch: 2 };
+
   function startExo(url) {
     const P = exoPlugin();
     const token = playToken;
@@ -791,17 +936,46 @@ const Player = (() => {
     httpNote = '';
     clearTimeout(busyTimer);
     teardown();
+    const keep = NV.on;
+    NV.on = false;        // let go of the page tag only; the native player is reopened below
     releaseVideo();
-    spinner.classList.add('hidden');
+    NV.on = keep;
     setMsg('');
     let pos = 0;
     if (seekOnLoad > 0) pos = seekOnLoad;
     else if (!isLive() && !isCatchup() && !resumeDone && !(window.Settings && Settings.get('resume') === false)) {
       const pr = API.getProgress(info.url);
-      if (pr && pr.t > 20 && (!pr.d || pr.t < pr.d - 30)) pos = pr.t;
+      if (pr && pr.t > 20 && (!pr.d || pr.t < pr.d - 30)) { pos = pr.t; resumedFrom = pr.t; }
     }
     resumeDone = true;
     seekOnLoad = 0;
+    if (P.open && P.control) {
+      // the picture goes under the page; every control of this player stays on screen and works
+      nvBind(P);
+      nvReset();
+      NV.on = true;
+      document.documentElement.classList.add('nv-under');
+      updatePlayIcon();
+      spinner.classList.remove('hidden');
+      wantPlay = true;
+      lastTime = -1;
+      lastMoveTs = Date.now();
+      clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => { if (!started && token === playToken && NV.on) fail(); }, isCatchup() ? 20000 : isLive() ? 20000 : 60000);
+      P.open({ url, live: isLive(), position: pos }).then(() => {
+        if (token !== playToken) return;
+        if (NV_FIT[pictureId]) nvCall('fit', NV_FIT[pictureId]);
+        if (pos > 0) toast(tr('Resumed at {time}', { time: fmt(pos) }), 2200);
+      }, () => {
+        if (token !== playToken || !ctx) return;
+        nvStop();
+        exoOff = true;
+        start(url);
+      });
+      return;
+    }
+    // older app shell: the full-screen native player screen
+    spinner.classList.add('hidden');
     P.play({
       url,
       title: (info && info.title) || '',
@@ -929,7 +1103,7 @@ const Player = (() => {
     });
     video.autoplay = true;
     hls.loadSource(url);
-    hls.attachMedia(video);
+    hls.attachMedia(vEl);
   }
 
   function startNow(url, mode) {
@@ -1037,6 +1211,7 @@ const Player = (() => {
     clearTimeout(bannerTimer);
     clearTimeout(pauseCardTimer);
     playToken++; // a start() whose proxy lookup is still in flight must not open after Back
+    nvStop();
     wantPlay = false;
     if (!video.paused) ignorePauseUntil = Date.now() + 250;
     video.pause();
@@ -1978,7 +2153,7 @@ const Player = (() => {
   };
   if (window.PointerEvent) playerEl.addEventListener('pointerdown', wake, true);
   else playerEl.addEventListener('touchstart', wake, { passive: true, capture: true });
-  playerEl.addEventListener('click', (e) => { if (e.target !== video && overlayVisible()) armHide(); }, true);
+  playerEl.addEventListener('click', (e) => { if (e.target !== vEl && overlayVisible()) armHide(); }, true);
   // a finger on the seek bar can drag it
   let drag = false;
   const seekTo = (x) => {
